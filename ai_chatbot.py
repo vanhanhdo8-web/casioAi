@@ -14,7 +14,7 @@ load_dotenv()
 # Cấu hình OpenAI
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if OPENAI_API_KEY:
-    openai.api_key = 
+    openai.api_key = OPENAI_API_KEY
     print("✅ AI Chatbot: Đã tìm thấy OpenAI API Key")
 else:
     print("⚠️ AI Chatbot: Chưa có OpenAI API Key trong file .env")
