@@ -24,7 +24,7 @@ if not OPENAI_API_KEY:
     print("📝 Tạo file .env với nội dung: OPENAI_API_KEY=sk-your-key-here")
 else:
     print("✅ Đã tìm thấy OpenAI API Key")
-    openai.api_key =
+    openai.api_key = OPENAI_API_KEY
 
 # ===== XÁC ĐỊNH CỔNG CHẠY =====
 PORT = int(os.environ.get('PORT', 7860))
