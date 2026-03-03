@@ -203,7 +203,7 @@ def ai_chat():
         
         # Tạo model với system instruction
         model = genai.GenerativeModel(
-            model_name='gemini-1.5-pro',  # Có thể dùng gemini-1.5-flash cho nhanh hơn
+            model_name='models/gemini-1.5-pro',  # Có thể dùng gemini-1.5-flash cho nhanh hơn
             generation_config={
                 'temperature': 0.7,
                 'max_output_tokens': 800,
