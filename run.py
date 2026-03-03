@@ -13,6 +13,7 @@ import importlib.util
 import sys
 from dotenv import load_dotenv
 import openai
+from ai_chatbot import ai_chatbot_bp
 
 # ===== LOAD BIẾN MÔI TRƯỜNG =====
 load_dotenv()
