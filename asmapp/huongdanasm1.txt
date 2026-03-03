@@ -1,0 +1,232 @@
+
+
+
+
+            Được soạn bởi Văn Huy
+
+
+
+
+# ROP BASIC
+# BÀI HỌC ĐẦU TIÊN:Phương pháp CPY
+
+
+
+```StringCPY:C8 03 32 30
+Syntax:
+34 7B 31 30 [Addr muốn copy sang][Addr gốc] C8 03 32 30
+Copy từ Addr gốc sang addr muốn copy cho đến khi gặp null byte (tức là byte 00)
+Memcpy:50 94 30 30,32 89 31 30
+Syntax:
+34 7B 31 30 [Addr muốn copy sang][Addr gốc] 50 94 30 30 [Độ dài muốn copy <2 byte> ]
+DA 7B 31 30 [Độ dài muốn copy <2 byte> ][Addr gốc][Addr muốn copy sang] 30 30 32 89 31 30 30 30
+Copy từ Addr gốc sang addr muốn copy với độ dài mong muốn
+Ví dụ: Program dài 100 byte thì quy ra hex sẽ là 64,nhập độ dài sẽ là 64 00
+*Có nhiều Memcpy nhưng 2 cái này tiêu biểu nhất nên lấy vào
+
+
+
+```
+# BÀI TIẾP THEO:Phương pháp loop program
+## Loop với StringCPY và 2 vùng địa chỉ (Inject program vào vùng addr chính)
+```34 7B 31 30 [Vùng addr backup <Copy lên vùng addr chính khi vùng addr chính bị phá do set sp (Giải thích sau)>][Vùng addr chính] A8 9F 30 30 (Setlr để loop ổn định)
+[Program <Không được có null byte> ]
+34 7B 31 30 [Vùng addr chính][Vùng addr backup] C8 03 32 30 78 5C 31 30 [Vùng addr chính -2] 60 0D 32 30 (set sp nè) 00
+*Set sp:Hiểu nôm na là launcher gián tiếp đi
+Launcher cho program:
+78 5C 31 30 [Vùng addr chính -2] 60 0D 32 30
+• Ưu điểm : Đơn giản
+• Nhược điểm : Program không được chứa null byte,không thể skip
+
+
+
+```
+## Loop với StringCPY và 3 vùng địa chỉ (Inject program vào vùng addr Backup 2)
+```34 7B 31 30 [Vùng addr backup][Vùng addr chính] C8 03 32 30 A8 9F 30 30
+[Program <Không được có null byte> ]
+34 7B 31 30 [Vùng addr chính][Vùng addr backup] C8 03 32 30 78 5C 31 30 [Vùng addr chính -2] 60 0D 32 30 00
+Launcher cho program:
+34 7B 31 30 [Vùng addr chính][Vùng addr backup 2] C8 03 32 30 78 5C 31 30 [Vùng addr chính -2] 60 0D 32 30
+• Ưu điểm : Đơn giản,có thể skip
+• Nhược điểm : Program vẫn không được chứa null byte
+
+
+
+# Các vùng địa chỉ ||(CWI only & Rewritten Ver 🐧)||
+### Vùng 1: `E9D4` → `EDCF…`
+-# Thường thì đa số Program đặt điểm bắt đầu inject là: `E9E0`
+**• Đặc điểm:**
+  ︎-︎ Đây là vùng có thể được coi là an toàn
+  ︎-︎ Là nơi mặc định thường chứa hầu hết các Program dài/ngắn khác nhau, chủ yếu là Backup Program (có thể bao gồm cả Launcher, Seed, v.v… nếu độ dài chưa chạm đến ngưỡng an toàn)
+**• Lưu ý:**
+  ︎-︎ Vùng này sẽ không còn an toàn nữa nếu:
+    1/ Tháo lắp pin (đương nhiên rồi :v)
+    2/ Chạy các dạng ma trận (bao gồm softbrick và hardbrick)
+    3/ Sử dụng các kí tự có thể stack được trong chế độ MathI/O (thường là các kí tự có chứa `(` hoặc `□`)
+       VD: `(` ; `sin(` ; `√(` trong MathI/O ; v.v…
+    4/ Một số phép tính ra kết quả dài (thường gặp ở phép chia), thường dễ bị ảnh hưởng đối với một số Program có độ dài (gần) chạm đến ngưỡng an toàn
+       VD: 3.1415926536…, v.v…
+    5/ Chuyển đổi dạng kết quả bằng nút [S⇔D] sau khi tính
+       VD: 1.₍3₎ (a.k.a 1.333333333…), 1⌟3, v.v…
+
+### Vùng 2: D5F8 → DBCF
+**• Đặc điểm:**
+  ︎-︎ Một vùng 'rộng lớn' mà có thể được coi là ổn định
+  ︎-︎ Các Program dùng để chạy (copy từ Backup Program qua) thường sẽ được đặt ở đây
+  ︎-︎ Có thể được dùng cho việc inject văn bản dài/ngắn khác nhau (miễn là độ dài văn bản **không được chạm** tới vùng `memory_integrity` dẫn đến máy tính bị Factory Reset → Clear vùng này)
+**• Lưu ý:**
+  ︎-︎ Vùng này sẽ không còn an toàn nữa nếu:
+    × 1/ ; 2/
+    × Chuyển mode bất kỳ bằng nút [MENU]
+    × Reset bằng [Shift];[9], hoặc bị Factory Reset (bao gồm `memory_integrity` bị 'ô nhiễm')
+
+### Vùng 3: DBE8 → DDCF
+**• Đặc điểm:**
+  ︎-︎ Một vùng khá rộng và có thể được coi là ổn định
+  ︎-︎ Một lựa chọn cho các Program ngắn có thể inject trực tiếp (chẳng hạn như: Quickcpy/++/Max/Max Fix/…)
+**• Lưu ý:**
+  ︎-︎ Vùng này sẽ không còn an toàn nữa nếu:
+    × 1/ ; 2/ ; 3/
+
+### Vùng 4: E3D4 → E9D3
+**• Đặc điểm:** Lựa chọn có thể thay thế cho Vùng 2
+**• Lưu ý:** Vùng này thật sự __không an toàn__
+-# Do đây là vùng `screen_buffer2`, hay bị ghi đè bởi các màn hình như: [MENU], [Shift];[7], v.v… & bị clear sau khi nhấn [AC] hoặc [ON]
+
+### Vùng 5: D248 → D30F
+**• Đặc điểm:**
+  ︎-︎ Đây là một vùng hiếm (cụ thể là: hiếm ai dùng đến 🐧)
+  ︎-︎ Các Launcher dùng để chạy (copy từ Launcher gốc thông qua Backup Program, rồi sau đó chạy → tạo thành loop) có thể được đặt tại đây
+
+-# Du khong duoc khuyen nghi :s
+**• Lưu ý:** Đây là vùng không an toàn (chắc chắn rồi :>)
+
+**• Rewritten by:**  <@1194537752314777631>
+**︎︎-︎︎ Original:** <@1269627598615613564> (sorry for ping :3)
+||-# Do được viết lại dưới góc nhìn của tui nên việc sai sót sẽ là điều không thể tránh khỏi ;]||
+
+
+## Loop với StringCPY kết hợp với Memcpy ở input area (D180)
+```[Program]
+34 7B 31 30 30 D6 B0 D1 C8 03 32 30 78 5C 31 30 2E D6 60 0D 32 30
+Launcher cho program (Bắt buộc vào 124 an)
+DA 7B 31 30 [Độ dài program][Vùng addr backup 2 <Thường là E9E0>][Vùng addr chính][Vùng addr chính -2] 32 89 31 30 30 30 74 1F 32 30
+Giải thích đơn giản : Trong program khi đến đoạn loop,nó sẽ lấy cái vùng input area để set sp (Tất nhiên trước đấy phải lưu vùng nào đó 
+như D630 chẳng hạn và lấy vùng input area làm vùng addr backup,set sp ở D630 luôn) và sẽ chạy qua đoạn Memcpy trong launcher giúp lưu 
+data ở các vùng addr,đồng thời set sp ở vùng addr chính luôn
+• Ưu điểm : Ngắn,phần loop trong program thường cố định giá trị sẵn và không sợ null byte
+• Nhược điểm : Không có đâu
+
+
+
+```
+-# Đoạn giải thích hơi dài dòng nhỉ 🙂‍↔️
+# Hằng "gadget" đáng nhớ
+## Trước đó chúng ta sẽ làm quen với register nhé (4 cái cơ bản trước đã)
+```34 7B 31 30: Có 4 byte ở trong register,tương ứng với r0,r1,r2,r3 (POP XR0)
+DA 7B 31 30: Có 8 byte ở trong register,tương ứng với r0, r1, r2, r3,r4,r5,r6,r7,r8 (POP QR0)
+02 26 31 30: Có 2 byte ở trong register,tương ứng với r0,r1 (POP ER0)
+74 89 31 30: Có 2 byte ở trong register,tương ứng với r2,r3 (POP ER2)
+Nếu trong gadget ghi là r0 thì một byte ở vị trí r0,er0 thì 2 byte ở vị trí r0,r1
+
+
+
+```
+## Gadget
+```
+CC 3D 32 30 (Line_print_col_0):Font ở r0,line position ở r1,địa chỉ chữ ở er2
+C8 3D 32 30 (Line_print_col_0_font_0E):1 byte bất kỳ ở r0,line position ở r1,địa chỉ chữ ở er2
+7E 94 30 30 (Render):Cập nhật màn hình lên DDD4 (Screen buffer),thường ở sau các line_print (Như 2 cái trên),không yêu cầu register và những màn hình yêu cầu pixel (Idk how to explain :pp)
+60 8C 30 30: Clear màn hình (Tức là clear vùng DDD4),thường phải có setlr ở trước hoặc render ở sau để tránh crash
+A8 9F 30 30:Setlr (Giúp program ổn định khi gặp gadget như dạng trên),không yêu cầu register 
+
+
+
+```
+# Next
+```ta có thứ gọi là register gồm các register như QRn, XRn, ERn, Rn và EA (hay còn gọi là ngăn xếp)
+mỗi register sẽ có số bytes khác nhau
+QRn: 8 bytes
+XRn: 4 bytes
+ERn: 2 bytes
+Rn: 1 byte + 1 byte pad
+EA: 2 bytes
+để lưu bytes vô các register chúng ta sẽ có 1 thứ gọi là POP cách dùng thì chúng ta xem register đó chứa bao nhiêu bytes thì khi dùng POP [register] n bytes tiếp theo sẽ là của register đó
+n là 1 số bất kì```
+-# Bú của <@864046645138423810> nếu khó hiểu thì khi tôi rảnh sẽ giải thích
+# Một vài register tiếp theo
+
+
+
+```Chúng ta có QRn là 8 byte tính từ vị trí Rn, XRn là 4 byte từ vị trí Rn, ERn là 2 byte từ vị trí Rn, Rn là 1 byte từ vị Rn
+A6 50 32 30: POP ER4
+A6 A8 30 30: POP ER8
+A8 2D 31 30: POP QR8
+40 0D 31 40: POP XR4
+A6 83 31 30: POP XR4
+16 D5 30 30: POP ER10
+36 16 32 30: POP ER12
+78 5C 31 30: POP ER14
+B0 3A 31 30: POP ER6
+
+
+
+```
+# Cách tăng giảm giá trị vào một địa chỉ bất kì
+```Những gadget cần sử dụng:
+A0 9C 30 30:L ER10, [ER8]
+74 89 31 30:POP ER2
+A6 A8 30 30:POP ER8
+Công thức:
+74 89 31 30 [Value muốn tăng <Tăng là từ 01 00 đi lên,giảm là từ FF FF đi xuống>] A6 A8 30 30 [Địa chỉ muốn tăng giảm giá trị] A0 9C 30 30 30 30 30 30
+Nếu muốn nó tăng liên tục thì loop lại là xong```
+# Cách dùng delay (Khá dễ nhưng <@940408485177331822> đòi :troll: )
+
+
+
+```Những gadget cần sử dụng
+02 26 31 30:POP ER0
+3C 9F 30 30:Delay
+Tổng quát:Giá trị delay ở ER0
+POP ER0
+[Value] - tức là r0 và r1
+Delay
+Dạng hex:02 26 31 30 [Delay value] 3C 9F 30 30
+Delay value càng cao thì độ trễ để đến func tiếp theo của program càng cao
+8000 tick = 1 second
+```
+
+
+
+# Loop với Memcpy
+```
+Trong program:
+[Program] 34 7B 31 30 30 D6 84 D1 C8 03 32 30 78 5C 31 30 2E D6 60 0D 32 30
+
+Launcher (Non-an)
+FD 24 30 30 A8 9F 30 30 E0 A0 30 30 DA 7B 31 30 
+fe01 e0 e9 30 d7 2e d7 32 89 31 30 30 30 74 1F 32 48
+Ưu điểm : Có thể có null byte (00), tốt hơn loop Strcpy :fire:
+```
+
+# CÁC DRAW_FUNC MÀ MỌI NGƯỜI NÊN BIẾT (KHÔNG THÌ THÔI 🐧 )
+- Pixel_draw (091FC): r0 = x position, r1 = y position,  r2 = color (00 = Black, 01 = White), r3 = byte pad (Không để làm gì)
+### Tác dụng : In một pixel lên vị trí x và vị trí y tuỳ theo màu
+- Line_draw (28AC2 hoặc 08E64): r0 = x start position, r1 = y start position, r2 = x end position, r3 = y end position
+### Tác dụng : In pixel dưới dạng thanh (Nối vị trí của x start đến vị trí x end và y cũng thế)(khó giải thích quá)
+- Render_bitmap (09846): r0 = x position, r1 = y position, r2 = x size, r3 = y size, er0 (sau label do bị push ig) = Địa chỉ tranh
+### Tác dụng: In pixel được inject từ địa chỉ tranh,ngoài ra còn phải dùng memzero ở trước đống này (idk why),chi tiết xem trong https://discord.com/channels/1352640876203081838/1352655373139710063/1355559289078677624
+- Draw_glyph: ask <@864046645138423810> or <@994819569795485747> for more information <:tron_tf:1352645389198692445>
+## Và tất cả cần thêm render.ddd4 (0947E) ở sau !
+-# Ping: <@&1352646013487153192>
+
+# Hướng dẫn sử dụng 1:7502 (Đưa từ byte sang hex trong QuickCPY)
+```
+r9 = 0x80 (Mặc định như này)
+r11 = 0xC1 (Mode hiện tại,xem ở D111.Ví dụ đang ở mode Base-N thì để r11 là 0x02,...)
+er12 = Địa chỉ chứa hex đã convert (Thường để là D92E cho tiện)
+er14 = Địa chỉ chứa hex cần convert
+call 17502
+```
+Lúc này địa chỉ chứa hex đã convert sẽ là D947.Nếu ae muốn copy nó vào E9E0 thì dùng StringCPY hoặc MemCPY đưa từ D947 sang E9E0 thôi
+

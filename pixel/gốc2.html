@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Tool - Casio Tool</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        /* ===== SYSTEM STYLES ===== */
+        :root {
+            --casio-blue: #0066ff;
+            --white: #ffffff;
+            --bg-gray: #f4f7fa;
+            --radius: 20px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            background: var(--bg-gray); 
+            overflow-x: hidden;
+        }
+
+        /* HEADER */
+        header {
+            background-color: var(--casio-blue);
+            height: 65px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0; z-index: 1000;
+        }
+
+        .menu-btn {
+            width: 26px; height: 18px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            cursor: pointer; margin-right: 20px;
+        }
+
+        .menu-btn span {
+            display: block; height: 3.5px; width: 100%;
+            background-color: var(--white);
+            border-radius: 10px; transition: 0.3s;
+        }
+
+        .open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+        .open span:nth-child(2) { opacity: 0; }
+        .open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+        .logo { 
+            font-size: 22px; 
+            font-weight: 800; 
+            color: var(--white); 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed; top: 0; left: -280px;
+            width: 280px; height: 100%;
+            background: var(--white); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1050; padding-top: 80px;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.05);
+            border-radius: 0 var(--radius) var(--radius) 0;
+        }
+
+        .sidebar.active { left: 0; }
+
+        .sidebar a {
+            display: flex; align-items: center;
+            padding: 16px 25px; text-decoration: none;
+            color: #444; font-weight: 600; margin: 5px 15px;
+            border-radius: 15px; transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .sidebar a i { margin-right: 15px; color: var(--casio-blue); width: 25px; text-align: center; font-size: 18px; }
+        .sidebar a:hover { background: #f0f5ff; color: var(--casio-blue); transform: translateX(10px); }
+        .active-page { background: #f0f5ff; color: var(--casio-blue) !important; }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.2); display: none; z-index: 1040;
+            backdrop-filter: blur(4px);
+        }
+        .overlay.active { display: block; }
+
+        /* ===== PIXEL TOOL STYLES (ORIGINAL) ===== */
+        :root {
+            --primary: #007bff;
+            --bg-body: #f0f2f5;
+            --bg-card: #ffffff;
+            --text-sub: #64748b;
+            --border: #d1d9e0;
+            --cell-size: 15px;
+            --primary-blue: #007bff;
+            --grid-line: #888888;
+            --pixel-black: #000000;
+        }
+
+        .main-container {
+            width: 100%;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .tool-nav {
+            width: 95%;
+            max-width: 800px;
+            background: white;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .nav-link {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+            color: var(--text-sub);
+            border: 1px solid transparent;
+            text-transform: uppercase;
+        }
+
+        .nav-link.active {
+            color: var(--primary);
+            border-color: var(--primary);
+            background: #e7f3ff;
+        }
+
+        .tab-content { 
+            display: none; 
+            width: 95%;
+            max-width: 800px;
+            flex-direction: column; 
+            align-items: center; 
+            padding-top: 0; 
+        }
+        .tab-content.active { display: flex; }
+
+        /* TAB 1 STYLE - EXACTLY LIKE ORIGINAL */
+        .container-tab1 { 
+            background: var(--bg-card); 
+            padding: 15px; 
+            border-radius: 0 0 12px 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            width: 100%; 
+            text-align: center; 
+            border: 1px solid var(--border);
+            border-top: none;
+        }
+        .preview-area { 
+            margin: 5px 0; 
+            padding: 8px; 
+            background: #fdfdfd; 
+            border-radius: 6px; 
+            border: 1px solid #eee; 
+            line-height: 0; 
+        }
+        canvas { 
+            border: 1px solid #ddd; 
+            image-rendering: pixelated; 
+            background: #fff; 
+            width: 100%; 
+            height: auto; 
+            display: block; 
+            margin: 0 auto; 
+            max-width: 100%;
+        }
+        .txt-tab1 { 
+            width: 100%; 
+            height: 80px; 
+            background: #f9f9f9; 
+            border: 1px solid var(--border); 
+            border-radius: 6px; 
+            padding: 8px; 
+            font-family: monospace; 
+            font-size: 11px; 
+            resize: none; 
+            margin-top: 10px; 
+        }
+        .btn-tab1 { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 10px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            margin-top: 10px; 
+            width: 100%; 
+            text-transform: uppercase; 
+        }
+
+        /* TAB 2 STYLE - EXACTLY LIKE ORIGINAL */
+        .toolbar-container { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 12px 12px 0 0; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
+            border: 1px solid #dee2e6;
+            border-bottom: none;
+            width: 100%;
+        }
+        .toolbar-row { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 12px; 
+            flex-wrap: wrap; 
+            width: 100%; 
+        }
+        .input-group { 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            font-size: 11px; 
+            font-weight: 800; 
+            color: #475569; 
+        }
+        input[type="number"] { 
+            width: 55px; 
+            padding: 6px; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 4px; 
+            text-align: center; 
+            font-weight: bold; 
+        }
+        
+        .btn-t2 { 
+            padding: 10px 12px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-weight: 700; 
+            font-size: 10px; 
+            color: white; 
+            text-transform: uppercase; 
+            flex: 1 1 auto; 
+            min-width: 90px; 
+        }
+        .btn-create { background-color: var(--primary-blue); }
+        .btn-reverse { background-color: #f59e0b; }
+        .btn-clear { background-color: #64748b; }
+        .btn-copy-full { 
+            background-color: #10b981; 
+            width: 100%; 
+            margin-top: 10px; 
+            font-size: 11px; 
+            padding: 12px; 
+        } 
+
+        .canvas-container { 
+            background: white; 
+            padding: 1px; 
+            border: 1px solid #333; 
+            width: 100%;
+            overflow: auto; 
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+        }
+        
+        #pixel-canvas { 
+            display: grid; 
+            user-select: none;
+            background-color: var(--grid-line); 
+            gap: 1px; 
+            border: 1px solid var(--grid-line);
+        }
+        
+        .cell { 
+            width: var(--cell-size); 
+            height: var(--cell-size); 
+            background-color: white; 
+            box-sizing: border-box; 
+        }
+        .cell.active { background-color: var(--pixel-black); }
+        
+        .output-box { 
+            width: 100%; 
+            padding: 15px;
+            background: white;
+            border-radius: 0 0 12px 12px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .txt-tab2 { 
+            width: 100%; 
+            height: 120px; 
+            padding: 12px; 
+            border: 1px solid #dee2e6; 
+            border-radius: 8px; 
+            font-family: monospace; 
+            font-size: 13px; 
+            font-weight: 800; 
+            outline: none; 
+        }
+        .stats { 
+            font-size: 11px; 
+            color: #64748b; 
+            margin-top: 6px; 
+            font-weight: 700; 
+            text-align: right; 
+        }
+
+        /* FOOTER */
+        .footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #666;
+            border-top: 1px solid #eee;
+            margin-top: 40px;
+            width: 100%;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .footer-link {
+            color: #666;
+            text-decoration: none;
+            transition: color 0.3s;
+            cursor: pointer;
+        }
+        .footer-link:hover {
+            color: var(--casio-blue);
+        }
+        .copyright {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* RESPONSIVE - ĐIỀU CHỈNH ĐỂ LUÔN XẾP NGANG */
+        @media (max-width: 768px) {
+            .toolbar-row {
+                flex-direction: row;   /* giữ hàng ngang */
+                flex-wrap: wrap;       /* nếu quá hẹp thì xuống dòng */
+                gap: 8px;
+            }
+            .btn-t2 {
+                width: auto;           /* bỏ width 100% */
+                flex: 1 1 auto;
+                min-width: 80px;
+            }
+            .input-group {
+                flex: 1 1 auto;
+                min-width: 120px;
+                justify-content: center;
+            }
+            input[type="number"] {
+                width: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+        <div class="menu-btn" id="menuBtn" onclick="toggleMenu()">
+            <span></span><span></span><span></span>
+        </div>
+        <div class="logo">Casio Tool</div>
+    </header>
+
+    <!-- OVERLAY -->
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <!-- SIDEBAR - ĐỒNG BỘ POST, SỬA "GÓP Ý" THÀNH "ỦNG HỘ" ICON TIM -->
+    <nav class="sidebar" id="sidebar">
+        <a onclick="navigatePOST('/'); toggleMenu()"><i class="fa-solid fa-house"></i> Home</a>
+        <a onclick="navigatePOST('/hex'); toggleMenu()"><i class="fa-solid fa-calculator"></i> Tiện ích Casio</a>
+        <a onclick="navigatePOST('/asm'); toggleMenu()"><i class="fa-solid fa-microchip"></i> Tiện ích ROP</a>
+        <a onclick="navigatePOST('/spell'); toggleMenu()"><i class="fa-solid fa-wand-magic-sparkles"></i> Spell 1 line</a>
+        <a onclick="navigatePOST('/pixel'); toggleMenu()" class="active-page"><i class="fa-solid fa-border-all"></i> Pixel Tool</a>
+        <!-- Ủng hộ - icon heart, route /donate -->
+        <a onclick="navigatePOST('/donate'); toggleMenu()"><i class="fa-solid fa-heart"></i> Ủng hộ</a>
+        <a onclick="navigatePOST('/lienhe'); toggleMenu()"><i class="fa-solid fa-address-book"></i> Liên hệ</a>
+    </nav>
+
+    <!-- MAIN CONTENT (PIXEL TOOL) -->
+    <div class="main-container">
+        <nav class="tool-nav">
+            <div class="nav-link active" onclick="openTab(event, 'tab-translate')">Dịch Ảnh</div>
+            <div class="nav-link" onclick="openTab(event, 'tab-edit')">Vẽ Pixel</div>
+        </nav>
+
+        <!-- TAB 1: DỊCH ẢNH -->
+        <div id="tab-translate" class="tab-content active">
+            <div class="container-tab1">
+                <h2 style="color: var(--primary); margin: 0 0 2px 0; font-size: 1.3rem;">Dịch Pixel</h2>
+                <p style="color: var(--text-sub); margin: 0 0 10px 0; font-size: 0.8rem;">Chuyển ảnh ↔ 1-bit Hex (192x63)</p>
+                
+                <div class="upload-section">
+                    <input type="file" id="upload" accept="image/*" style="margin: 10px 0; width: 100%;">
+                </div>
+                
+                <div class="preview-area">
+                    <canvas id="canvas"></canvas>
+                    <div style="font-size: 0.7rem; color: #aaa; margin-top: 8px;">Output: 192 x 63 pixels</div>
+                </div>
+                
+                <textarea id="hexOutput" class="txt-tab1" placeholder="Dán mã hex (192x63) vào đây để xem ảnh..."></textarea>
+                <button id="copyBtn1" class="btn-tab1" onclick="copyHexTab1()">SAO CHÉP MÃ HEX</button>
+            </div>
+        </div>
+
+        <!-- TAB 2: VẼ PIXEL (ĐÃ SỬA SỰ KIỆN) -->
+        <div id="tab-edit" class="tab-content">
+            <div class="toolbar-container">
+                <div class="toolbar-row">
+                    <div class="input-group">CHIỀU RỘNG <input type="number" id="wInput" value="40"></div>
+                    <div class="input-group">CHIỀU CAO <input type="number" id="hInput" value="30"></div>
+                    <div class="input-group">ZOOM <input type="range" id="zoomRange" min="5" max="40" value="5" oninput="updateZoom(this.value)"></div>
+                </div>
+                <div class="toolbar-row">
+                    <button class="btn-t2 btn-create" onclick="initEditor()">Tạo mới</button>
+                    <button class="btn-t2 btn-reverse" onclick="reverseHex()">Dịch HEX</button>
+                    <button class="btn-t2 btn-clear" onclick="clearAll()">Xóa sạch</button>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <div id="pixel-canvas"></div>
+            </div>
+            
+            <div class="output-box">
+                <textarea id="hexArea" class="txt-tab2" placeholder="hex pixel output here"></textarea>
+                <div class="stats" id="infoText">KÍCH THƯỚC: 0x0 | TỔNG CỘNG: 0 BYTES</div>
+                <button class="btn-t2 btn-copy-full" onclick="copyHexTab2()">SAO CHÉP MÃ HEX</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER - ĐỒNG BỘ POST -->
+    <footer class="footer">
+        <div class="footer-links">
+            <a onclick="navigatePOST('/donate')" class="footer-link"><i class="fa-solid fa-heart"></i> Ủng hộ</a>
+            <a onclick="navigatePOST('/lienhe')" class="footer-link">Liên hệ</a>
+            <a onclick="navigatePOST('/huong-dan')" class="footer-link">Hướng dẫn</a>
+            <a onclick="navigatePOST('/chinh-sach')" class="footer-link">Chính sách</a>
+        </div>
+        <div class="copyright">
+            © 2024 Casio Tool. Tất cả các quyền được bảo lưu.
+        </div>
+    </footer>
+
+    <script>
+        // ===== HÀM ĐIỀU HƯỚNG POST (ĐỒNG BỘ TOÀN HỆ THỐNG) =====
+        async function navigatePOST(route) {
+            console.log("Đang gửi POST đến route: " + route);
+            try {
+                const response = await fetch(route, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: route,
+                        timestamp: new Date().toISOString(),
+                        userAgent: navigator.userAgent
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message || `Đã chuyển đến ${route}`);
+                    setTimeout(() => { window.location.href = route; }, 300);
+                } else {
+                    window.location.href = route; // fallback
+                }
+            } catch (error) {
+                console.warn("Không kết nối được server, chuyển hướng trực tiếp");
+                window.location.href = route;
+            }
+        }
+
+        // ===== SIDEBAR FUNCTIONS =====
+        function toggleMenu() {
+            document.getElementById('menuBtn').classList.toggle('open');
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('overlay').classList.toggle('active');
+        }
+        
+        // ===== HIGHLIGHT ACTIVE PAGE (dựa trên route trong onclick) =====
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const sidebarLinks = document.querySelectorAll('.sidebar a');
+            
+            sidebarLinks.forEach(link => {
+                const onclick = link.getAttribute('onclick') || '';
+                const match = onclick.match(/navigatePOST\('([^']+)'\)/);
+                if (match && match[1] === currentPath) {
+                    link.classList.add('active-page');
+                }
+            });
+
+            // Initialize pixel editor
+            initEditor();
+        });
+
+        // ===== PIXEL TOOL FUNCTIONS (giữ nguyên logic gốc, chỉ sửa sự kiện) =====
+        function openTab(evt, tabName) {
+            var i, tabcontent, navlinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) { 
+                tabcontent[i].classList.remove("active");
+            }
+            navlinks = document.getElementsByClassName("nav-link");
+            for (i = 0; i < navlinks.length; i++) { 
+                navlinks[i].classList.remove("active");
+            }
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+            
+            // Re-initialize editor if switching to edit tab
+            if (tabName === 'tab-edit') {
+                setTimeout(initEditor, 50);
+            }
+        }
+
+        // --- LOGIC DỊCH ẢNH (TAB 1) ---
+        const upload = document.getElementById('upload');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const hexOutput = document.getElementById('hexOutput');
+        const copyBtn1 = document.getElementById('copyBtn1');
+        const W1 = 192, H1 = 63;
+        canvas.width = W1; 
+        canvas.height = H1;
+
+        // Initialize canvas with white background
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, W1, H1);
+
+        // 1. Dịch từ Ảnh -> HEX
+        upload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.fillStyle = "white"; 
+                    ctx.fillRect(0, 0, W1, H1);
+                    ctx.drawImage(img, 0, 0, W1, H1);
+                    const imageData = ctx.getImageData(0, 0, W1, H1);
+                    const data = imageData.data;
+                    let hexArray = [];
+                    for (let y = 0; y < H1; y++) {
+                        let byte = 0; 
+                        let bitCount = 0;
+                        for (let x = 0; x < W1; x++) {
+                            const idx = (y * W1 + x) * 4;
+                            const avg = (data[idx] + data[idx+1] + data[idx+2]) / 3;
+                            const bit = (avg < 128) ? 1 : 0;
+                            data[idx] = data[idx+1] = data[idx+2] = bit ? 0 : 255;
+                            byte = (byte << 1) | bit;
+                            bitCount++;
+                            if (bitCount === 8) {
+                                hexArray.push(byte.toString(16).toUpperCase().padStart(2, '0'));
+                                byte = 0; 
+                                bitCount = 0;
+                            }
+                        }
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    hexOutput.value = hexArray.join(' ');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 2. Dịch từ HEX -> Ảnh
+        hexOutput.addEventListener('input', () => {
+            const hexData = hexOutput.value.replace(/[^0-9A-Fa-f]/g, '');
+            if (hexData.length === 0) return;
+            const imageData = ctx.createImageData(W1, H1);
+            const data = imageData.data;
+            let byteIdx = 0;
+            for (let i = 0; i < hexData.length; i += 2) {
+                const byte = parseInt(hexData.substr(i, 2), 16);
+                if (isNaN(byte)) continue;
+                for (let bit = 7; bit >= 0; bit--) {
+                    const pixelIdx = byteIdx * 8 + (7 - bit);
+                    if (pixelIdx >= W1 * H1) break;
+                    const isOn = (byte >> bit) & 1;
+                    const color = isOn ? 0 : 255;
+                    const dIdx = pixelIdx * 4;
+                    data[dIdx] = data[dIdx+1] = data[dIdx+2] = color;
+                    data[dIdx+3] = 255;
+                }
+                byteIdx++;
+            }
+            ctx.putImageData(imageData, 0, 0);
+        });
+
+        function copyHexTab1() {
+            hexOutput.select();
+            document.execCommand('copy');
+            copyBtn1.innerText = 'ĐÃ SAO CHÉP!';
+            setTimeout(() => { copyBtn1.innerText = 'SAO CHÉP MÃ HEX'; }, 1500);
+        }
+
+        // --- LOGIC VẼ PIXEL (TAB 2) ĐÃ SỬA SỰ KIỆN ---
+        const pCanvas = document.getElementById('pixel-canvas');
+        const hexArea = document.getElementById('hexArea');
+        const infoText = document.getElementById('infoText');
+
+        function updateZoom(val) { 
+            document.documentElement.style.setProperty('--cell-size', val + 'px'); 
+        }
+
+        function initEditor() {
+            const w = parseInt(document.getElementById('wInput').value) || 1;
+            const h = parseInt(document.getElementById('hInput').value) || 1;
+            
+            // Limit size for performance
+            const maxSize = 200;
+            const width = Math.min(w, maxSize);
+            const height = Math.min(h, maxSize);
+            
+            pCanvas.style.gridTemplateColumns = `repeat(${width}, var(--cell-size))`;
+            pCanvas.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < width * height; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                // Chỉ gọi updateOutput khi thực sự có thay đổi class
+                cell.onmousedown = (e) => {
+                    let changed = false;
+                    if (e.button === 0) {
+                        cell.classList.toggle('active');
+                        changed = true;
+                    }
+                    if (e.button === 2) {
+                        cell.classList.remove('active');
+                        changed = true;
+                    }
+                    if (changed) updateOutput();
+                };
+                cell.onmouseenter = (e) => {
+                    let changed = false;
+                    if (e.buttons === 1) {
+                        cell.classList.add('active');
+                        changed = true;
+                    }
+                    if (e.buttons === 2) {
+                        cell.classList.remove('active');
+                        changed = true;
+                    }
+                    if (changed) updateOutput();
+                };
+                cell.oncontextmenu = (e) => e.preventDefault();
+                fragment.appendChild(cell);
+            }
+            pCanvas.appendChild(fragment);
+            updateOutput();
+            // Áp dụng zoom mặc định từ thanh trượt
+            updateZoom(document.getElementById('zoomRange').value);
+        }
+
+        function updateOutput() {
+            const w = parseInt(document.getElementById('wInput').value);
+            const h = parseInt(document.getElementById('hInput').value);
+            const cells = pCanvas.querySelectorAll('.cell');
+            let hexResult = ""; 
+            let byteCount = 0; 
+            let hasActive = false;
+            for (let r = 0; r < h; r++) {
+                let rowHexFull = ""; 
+                let rowBits = "";
+                for (let c = 0; c < w; c++) {
+                    const active = cells[r * w + c]?.classList.contains('active');
+                    if (active) hasActive = true;
+                    rowBits += active ? "1" : "0";
+                }
+                for (let b = 0; b < rowBits.length; b += 8) {
+                    let chunk = rowBits.substr(b, 8).padEnd(8, '0');
+                    rowHexFull += parseInt(chunk, 2).toString(16).toUpperCase().padStart(2, '0');
+                    byteCount++;
+                }
+                let rowRes = "";
+                for (let i = 0; i < rowHexFull.length; i += 4) { 
+                    rowRes += rowHexFull.substr(i, 4) + " "; 
+                }
+                hexResult += rowRes.trim() + "\n";
+            }
+            hexArea.value = hasActive ? hexResult.trim() : "";
+            infoText.innerText = `KÍCH THƯỚC: ${w}x${h} | TỔNG CỘNG: ${byteCount} BYTES`;
+        }
+
+        function reverseHex() {
+            const input = hexArea.value.replace(/\s+/g, '');
+            if (!input) {
+                alert("Vui lòng nhập mã HEX trước!");
+                return;
+            }
+            const w = parseInt(document.getElementById('wInput').value);
+            const h = parseInt(document.getElementById('hInput').value);
+            const cells = pCanvas.querySelectorAll('.cell');
+            cells.forEach(c => c.classList.remove('active'));
+            let idx = 0;
+            for (let r = 0; r < h; r++) {
+                let rowBin = "";
+                for (let b = 0; b < Math.ceil(w/8); b++) {
+                    const chunk = input.substr(idx, 2);
+                    if(chunk) rowBin += parseInt(chunk, 16).toString(2).padStart(8, '0');
+                    idx += 2;
+                }
+                for (let c = 0; c < w; c++) {
+                    if (rowBin[c] === '1' && cells[r * w + c]) {
+                        cells[r * w + c].classList.add('active');
+                    }
+                }
+            }
+            updateOutput();
+        }
+
+        function clearAll() {
+            if(confirm("Xóa sạch vùng vẽ?")) {
+                pCanvas.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
+                updateOutput(); // sẽ làm trống hexArea
+            }
+        }
+
+        function copyHexTab2() {
+            hexArea.select();
+            document.execCommand('copy');
+            alert("Đã sao chép mã HEX!");
+        }
+
+        // Initialize on load
+        window.addEventListener('load', function() {
+            initEditor();
+        });
+    </script>
+</body>
+</html>

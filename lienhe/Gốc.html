@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liên hệ - Casio Tool</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        :root {
+            --casio-blue: #0066ff;
+            --white: #ffffff;
+            --bg-gray: #f4f7fa;
+            --radius: 20px;
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background-color: var(--bg-gray); overflow-x: hidden; }
+
+        header {
+            background-color: var(--casio-blue);
+            height: 65px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0; z-index: 1000;
+        }
+
+        .menu-btn {
+            width: 26px; height: 18px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            cursor: pointer; margin-right: 20px;
+        }
+
+        .menu-btn span {
+            display: block; height: 3.5px; width: 100%;
+            background-color: var(--white);
+            border-radius: 10px; transition: 0.3s;
+        }
+
+        .open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+        .open span:nth-child(2) { opacity: 0; }
+        .open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+        .logo { 
+            font-size: 22px; 
+            font-weight: 800; 
+            color: var(--white); 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed; top: 0; left: -280px;
+            width: 280px; height: 100%;
+            background: var(--white); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1050; padding-top: 80px;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.05);
+            border-radius: 0 var(--radius) var(--radius) 0;
+        }
+
+        .sidebar.active { left: 0; }
+
+        .sidebar a {
+            display: flex; align-items: center;
+            padding: 16px 25px; text-decoration: none;
+            color: #444; font-weight: 600; margin: 5px 15px;
+            border-radius: 15px; transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .sidebar a i { margin-right: 15px; color: var(--casio-blue); width: 25px; text-align: center; font-size: 18px; }
+        .sidebar a:hover { background: #f0f5ff; color: var(--casio-blue); transform: translateX(10px); }
+        .active-page { background: #f0f5ff; color: var(--casio-blue) !important; }
+
+        /* MAIN CONTENT */
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .contact-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 40px 40px 50px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .intro-text {
+            font-size: 1.35rem;
+            color: #000;
+            margin-bottom: 40px;
+            font-weight: 400;
+            line-height: 1.5;
+            padding: 0 10px;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin: 20px 0 10px;
+        }
+
+        .contact-item {
+            background: #fafafa;
+            padding: 12px 8px;
+            border-radius: 12px;
+            transition: 0.2s;
+            border: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .contact-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,102,255,0.06);
+            border-color: var(--casio-blue);
+        }
+
+        .contact-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(145deg, var(--casio-blue), #00aaff);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 6px;
+            color: white;
+            font-size: 1.3rem;
+        }
+
+        .contact-label {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .contact-detail {
+            font-size: 0.8rem;
+            color: #555;
+            word-break: break-word;
+        }
+
+        .contact-detail a {
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1.5px solid transparent;
+            transition: 0.2s;
+        }
+
+        .fb-link, .discord-link {
+            display: inline-block;
+            color: white !important;
+            padding: 5px 12px;
+            border-radius: 25px;
+            font-weight: 500;
+            margin-top: 4px;
+            border: none !important;
+            font-size: 0.8rem;
+        }
+
+        .fb-link {
+            background: #1877f2;
+        }
+        .fb-link:hover {
+            background: #0a5fd0;
+            transform: scale(1.02);
+        }
+
+        .discord-link {
+            background: #5865f2;
+        }
+        .discord-link:hover {
+            background: #4752c4;
+            transform: scale(1.02);
+        }
+
+        .email-link {
+            color: #ea4335 !important;
+            font-weight: 600;
+            display: inline-block;
+            padding: 5px 12px;
+            background: #ffe9e7;
+            border-radius: 25px;
+            margin-top: 4px;
+            font-size: 0.8rem;
+        }
+        .email-link:hover {
+            background: #ffdbd7;
+        }
+
+        .thankyou-text {
+            margin-top: 45px;
+            font-size: 1.25rem;
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-weight: 400;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #666;
+            border-top: 1px solid #eee;
+            margin-top: 20px;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .footer-link {
+            color: #666;
+            text-decoration: none;
+            transition: color 0.3s;
+            cursor: pointer;
+        }
+        .footer-link:hover {
+            color: var(--casio-blue);
+        }
+        .copyright {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.2); display: none; z-index: 1040;
+            backdrop-filter: blur(4px);
+        }
+        .overlay.active { display: block; }
+
+        @media (max-width: 768px) {
+            .intro-text { font-size: 1.2rem; }
+            .contact-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="menu-btn" id="menuBtn" onclick="toggleMenu()">
+            <span></span><span></span><span></span>
+        </div>
+        <div class="logo">Casio Tool</div>
+    </header>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <!-- SIDEBAR - ĐỒNG BỘ POST, SỬA "GÓP Ý" THÀNH "ỦNG HỘ" ICON TIM -->
+    <nav class="sidebar" id="sidebar">
+        <a onclick="navigatePOST('/'); toggleMenu()"><i class="fa-solid fa-house"></i> Home</a>
+        <a onclick="navigatePOST('/hex'); toggleMenu()"><i class="fa-solid fa-calculator"></i> Tiện ích Casio</a>
+        <a onclick="navigatePOST('/asm'); toggleMenu()"><i class="fa-solid fa-microchip"></i> Tiện ích ROP</a>
+        <a onclick="navigatePOST('/spell'); toggleMenu()"><i class="fa-solid fa-wand-magic-sparkles"></i> Spell 1 line</a>
+        <a onclick="navigatePOST('/pixel'); toggleMenu()"><i class="fa-solid fa-border-all"></i> Pixel Tool</a>
+        <!-- Ủng hộ - route /donate, icon heart -->
+        <a onclick="navigatePOST('/donate'); toggleMenu()"><i class="fa-solid fa-heart"></i> Ủng hộ</a>
+        <!-- Liên hệ - active -->
+        <a onclick="navigatePOST('/lienhe'); toggleMenu()" class="active-page"><i class="fa-solid fa-address-book"></i> Liên hệ</a>
+    </nav>
+
+    <div class="main-container">
+        <div class="contact-card">
+            <div class="intro-text">
+                <i class="fa-solid fa-circle-check" style="color: #0066ff; margin-right: 8px;"></i>
+                Web đã hoạt động rất tốt rồi, nếu có lỗi gì liên hệ với mình như sau để báo lỗi nhé!
+            </div>
+
+            <div class="contact-grid">
+                <!-- Facebook -->
+                <div class="contact-item">
+                    <div class="contact-icon" style="background: #1877f2;">
+                        <i class="fa-brands fa-facebook-f"></i>
+                    </div>
+                    <div class="contact-label">Facebook</div>
+                    <div class="contact-detail">
+                        <a href="https://www.facebook.com/share/177mrGAVNZ/?mibextid=wwXIfr" target="_blank" class="fb-link">
+                            <i class="fa-brands fa-facebook"></i> Hanh Đo
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Discord -->
+                <div class="contact-item">
+                    <div class="contact-icon" style="background: #5865f2;">
+                        <i class="fa-brands fa-discord"></i>
+                    </div>
+                    <div class="contact-label">Discord</div>
+                    <div class="contact-detail">
+                        <a href="https://discord.gg/un43PNJb" target="_blank" class="discord-link">
+                            <i class="fa-brands fa-discord"></i> discord.gg/un43PNJb
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Email -->
+                <div class="contact-item">
+                    <div class="contact-icon" style="background: #ea4335;">
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                    <div class="contact-label">Email</div>
+                    <div class="contact-detail">
+                        <a href="mailto:vanhanhdo8@gmail.com" class="email-link">
+                            <i class="fa-solid fa-envelope"></i> vanhanhdo8@gmail.com
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="thankyou-text">
+                cảm ơn bạn đã góp ý 🥰!
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-links">
+            <!-- Đã sửa: Ủng hộ - route /donate, icon heart, dùng POST -->
+            <a onclick="navigatePOST('/donate')" class="footer-link"><i class="fa-solid fa-heart"></i> Ủng hộ</a>
+            <a onclick="navigatePOST('/lienhe')" class="footer-link">Liên hệ</a>
+            <a onclick="navigatePOST('/huong-dan')" class="footer-link">Hướng dẫn</a>
+            <a onclick="navigatePOST('/chinh-sach')" class="footer-link">Chính sách</a>
+        </div>
+        <div class="copyright">
+            © 2024 Casio Tool. Tất cả các quyền được bảo lưu.
+        </div>
+    </footer>
+
+    <script>
+        // ===== HÀM ĐIỀU HƯỚNG POST (ĐỒNG BỘ VỚI TOÀN HỆ THỐNG) =====
+        async function navigatePOST(route) {
+            console.log("Đang gửi POST đến route: " + route);
+            try {
+                const response = await fetch(route, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: route,
+                        timestamp: new Date().toISOString(),
+                        userAgent: navigator.userAgent
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message || `Đã chuyển đến ${route}`);
+                    setTimeout(() => { window.location.href = route; }, 300);
+                } else {
+                    window.location.href = route; // fallback
+                }
+            } catch (error) {
+                console.warn("Không kết nối được server, chuyển hướng trực tiếp");
+                window.location.href = route;
+            }
+        }
+
+        // ===== SIDEBAR =====
+        function toggleMenu() {
+            document.getElementById('menuBtn').classList.toggle('open');
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('overlay').classList.toggle('active');
+        }
+
+        // ===== HIGHLIGHT ACTIVE PAGE (dựa trên route trong onclick) =====
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const sidebarLinks = document.querySelectorAll('.sidebar a');
+            
+            sidebarLinks.forEach(link => {
+                const onclick = link.getAttribute('onclick') || '';
+                const match = onclick.match(/navigatePOST\('([^']+)'\)/);
+                if (match && match[1] === currentPath) {
+                    link.classList.add('active-page');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

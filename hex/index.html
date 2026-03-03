@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiện ích Casio - Casio Tool</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        /* ===== SYSTEM STYLES ===== */
+        :root {
+            --casio-blue: #0066ff;
+            --white: #ffffff;
+            --bg-gray: #f4f7fa;
+            --radius: 20px;
+            /* Thêm biến màu từ Pixel Tool */
+            --primary: #007bff;
+            --text-sub: #64748b;
+            --border: #d1d9e0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg-gray); 
+            color: #334155; 
+            margin: 0;
+            padding-top: 80px;
+            padding-bottom: 40px;
+            overflow-x: hidden;
+        }
+
+        /* HEADER */
+        header {
+            background-color: var(--casio-blue);
+            height: 65px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        .menu-btn {
+            width: 26px; height: 18px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            cursor: pointer; margin-right: 20px;
+        }
+
+        .menu-btn span {
+            display: block; height: 3.5px; width: 100%;
+            background-color: var(--white);
+            border-radius: 10px; transition: 0.3s;
+        }
+
+        .open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+        .open span:nth-child(2) { opacity: 0; }
+        .open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+        .logo { 
+            font-size: 22px; 
+            font-weight: 800; 
+            color: var(--white); 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed; top: 0; left: -280px;
+            width: 280px; height: 100%;
+            background: var(--white); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1050; padding-top: 80px;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.05);
+            border-radius: 0 var(--radius) var(--radius) 0;
+        }
+
+        .sidebar.active { left: 0; }
+
+        .sidebar a {
+            display: flex; align-items: center;
+            padding: 16px 25px; text-decoration: none;
+            color: #444; font-weight: 600; margin: 5px 15px;
+            border-radius: 15px; transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .sidebar a i { margin-right: 15px; color: var(--casio-blue); width: 25px; text-align: center; font-size: 18px; }
+        .sidebar a:hover { background: #f0f5ff; color: var(--casio-blue); transform: translateX(10px); }
+        .active-page { background: #f0f5ff; color: var(--casio-blue) !important; }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.2); display: none; z-index: 1040;
+            backdrop-filter: blur(4px);
+        }
+        .overlay.active { display: block; }
+
+        /* ===== HEX TOOL STYLES ===== */
+        .main-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ----- THANH ĐIỀU HƯỚNG – COPY CHUẨN TỪ PIXEL TOOL ----- */
+        .tool-nav {
+            width: 95%;
+            max-width: 800px;          /* giống Pixel Tool */
+            background: white;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 0;
+        }
+
+        .nav-link {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+            color: var(--text-sub);
+            border: 1px solid transparent;
+            text-transform: uppercase;
+            background: transparent;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            background: #f0f5ff;
+            color: var(--primary);
+        }
+
+        .nav-link.active {
+            color: var(--primary);
+            border-color: var(--primary);
+            background: #e7f3ff;
+        }
+        /* -------------------------------------------------------- */
+
+        .container { 
+            width: 95%;
+            max-width: 800px;          /* đồng bộ với tool-nav */
+            background: #ffffff; 
+            padding: 30px; 
+            border-radius: 0 0 12px 12px; 
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+            border-top: none;
+            display: none;
+            animation: fadeIn 0.3s ease;
+            margin-bottom: 40px;
+        }
+        
+        .container.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 { 
+            color: #0369a1; 
+            text-align: center; 
+            margin-top: 0;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 15px;
+        }
+
+        textarea { 
+            width: 100%; 
+            background: #f8fafc; 
+            color: #1e293b; 
+            border: 2px solid #e2e8f0; 
+            padding: 15px; 
+            box-sizing: border-box; 
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            resize: vertical;
+            margin-bottom: 15px;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #38bdf8;
+            background: #fff;
+        }
+
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            background: #0284c7; 
+            border: none; 
+            font-weight: bold; 
+            cursor: pointer; 
+            border-radius: 8px; 
+            color: #ffffff; 
+            font-size: 16px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.3);
+            margin-bottom: 20px;
+        }
+        button:hover { 
+            background: #0369a1; 
+            transform: translateY(-1px);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #475569;
+            box-shadow: none;
+        }
+        .btn-secondary:hover {
+            background: #cbd5e1;
+            color: #1e293b;
+        }
+        .btn-red {
+            background: #fee2e2;
+            color: #991b1b;
+            box-shadow: none;
+        }
+        .btn-red:hover {
+            background: #fecaca;
+        }
+
+        pre, .readonly-box { 
+            background: #f1f5f9; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border-left: 5px solid #38bdf8; 
+            white-space: pre-wrap; 
+            color: #334155; 
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-x: auto;
+            border-top: 1px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .label-text {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+            color: #64748b;
+        }
+        
+        .note-box {
+            margin-bottom: 15px;
+            font-size: 14px;
+            padding: 12px;
+            background-color: #fff1f2;
+            border-radius: 8px;
+            border: 1px solid #fecdd3;
+        }
+        .note-red {
+            color: #e11d48;
+            font-weight: bold;
+        }
+
+        #imgWrapper {
+            display: none;
+            margin: 0 auto 20px auto;
+            border: 4px solid #f1f5f9;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 400px;
+        }
+        #displayImg { width: 100%; display: block; }
+
+        /* RESPONSIVE – giữ nguyên layout ngang cho các nút */
+        @media (max-width: 768px) {
+            .tool-nav {
+                gap: 5px;
+                padding: 10px 5px;
+            }
+            .nav-link {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+            .container {
+                padding: 20px;
+            }
+            /* Xóa flex-direction: column để các nút luôn nằm ngang */
+            .btn-group {
+                /* flex-direction: column;  (đã xóa) */
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+        <div class="menu-btn" id="menuBtn" onclick="toggleMenu()">
+            <span></span><span></span><span></span>
+        </div>
+        <div class="logo">Casio Tool</div>
+    </header>
+
+    <!-- OVERLAY -->
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <!-- SIDEBAR - HOÀN TOÀN DÙNG POST, ĐÃ SỬA "ỦNG HỘ" ICON TIM -->
+    <nav class="sidebar" id="sidebar">
+        <a onclick="navigatePOST('/'); toggleMenu()"><i class="fa-solid fa-house"></i> Home</a>
+        <a onclick="navigatePOST('/hex'); toggleMenu()" class="active-page"><i class="fa-solid fa-calculator"></i> Tiện ích Casio</a>
+        <a onclick="navigatePOST('/asm'); toggleMenu()"><i class="fa-solid fa-microchip"></i> Tiện ích ROP</a>
+        <a onclick="navigatePOST('/rop'); toggleMenu()"><i class="fa-solid fa-code"></i> Tra rop</a>
+        <a onclick="navigatePOST('/spell'); toggleMenu()"><i class="fa-solid fa-wand-magic-sparkles"></i> Spell 1 line</a>
+        <a onclick="navigatePOST('/pixel'); toggleMenu()"><i class="fa-solid fa-border-all"></i> Pixel Tool</a>
+        <!-- ✅ Ủng hộ - icon trái tim - route /donate -->
+        <a onclick="navigatePOST('/donate'); toggleMenu()"><i class="fa-solid fa-heart"></i> Ủng hộ</a>
+        <a onclick="navigatePOST('/lienhe'); toggleMenu()"><i class="fa-solid fa-address-book"></i> Liên hệ</a>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-container">
+        <!-- THANH ĐIỀU HƯỚNG ĐÃ ĐƯỢC SỬA THEO CHUẨN PIXEL TOOL -->
+        <nav class="tool-nav">
+            <div class="nav-link" onclick="switchTab(event, 'splitter')">GẮN HEX</div>
+            <div class="nav-link active" onclick="switchTab(event, 'token')">DỊCH TOKEN</div>
+        </nav>
+
+        <!-- TAB 1: HEX SPLITTER -->
+        <div id="tab-splitter" class="container">
+            <h2>HEX SPLITTER</h2>
+            
+            <span class="label-text">Dữ liệu Hex đầu vào:</span>
+            <textarea id="hexInput" style="height: 120px;" placeholder="Dán chuỗi hex vào đây (ví dụ: 4C4D4E...)"></textarea>
+            
+            <button onclick="runSplitter()">THỰC THI PHÂN TÁCH</button>
+            
+            <span class="label-text">Kết quả xử lý:</span>
+            <div class="note-box">
+                <span class="note-red">Lưu ý:</span> Thêm 23 vào cuối chuỗi nếu dữ liệu bị thiếu byte để tránh lỗi phân tách.
+            </div>
+            <pre id="outputSplitter">Chờ nhập liệu...</pre>
+        </div>
+
+        <!-- TAB 2: TOKEN TRANSLATOR (đang active) -->
+        <div id="tab-token" class="container active">
+            <h2>DỊCH TOKEN</h2>
+
+            <div id="imgWrapper">
+                <img id="displayImg" src="" alt="Bảng mã token">
+            </div>
+            <button class="btn-secondary" style="width: auto; margin: 0 auto 20px auto; display: block;" onclick="changeImg()">🖼️ HIỆN / ĐỔI BẢNG MÃ</button>
+
+            <span class="label-text">Mã Hex:</span>
+            <textarea id="hexArea" style="height: 100px;" placeholder="Ví dụ: 61 6E..."></textarea>
+            
+            <div class="btn-group">
+                <button class="btn-secondary" onclick="copyHex()">📋 Sao chép Hex</button>
+                <button class="btn-red" onclick="clearAll()">🗑️ Xoá trắng</button>
+            </div>
+
+            <span class="label-text">Văn bản (Tiếng Việt / Trung):</span>
+            <textarea id="textArea" style="height: 100px;" placeholder="Nhập chữ tại đây..."></textarea>
+
+            <span class="label-text">Kết quả Token (Hàm máy tính):</span>
+            <textarea id="tokenArea" readonly style="height: 100px; background: #f0f9ff; border-color: #bae6fd; font-weight: bold; color: #0369a1;" placeholder="Kết quả sẽ hiện ở đây..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        // ===== HÀM ĐIỀU HƯỚNG POST (ĐỒNG BỘ VỚI TRANG CHỦ) =====
+        async function navigatePOST(route) {
+            console.log("Đang gửi POST đến route: " + route);
+            try {
+                const response = await fetch(route, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: route,
+                        timestamp: new Date().toISOString(),
+                        userAgent: navigator.userAgent
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setTimeout(() => { window.location.href = route; }, 300);
+                } else {
+                    window.location.href = route; // fallback
+                }
+            } catch (error) {
+                console.warn("Không kết nối được server, chuyển hướng trực tiếp");
+                window.location.href = route;
+            }
+        }
+
+        // ===== SIDEBAR =====
+        function toggleMenu() {
+            document.getElementById('menuBtn').classList.toggle('open');
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('overlay').classList.toggle('active');
+        }
+
+        // Highlight active page dựa trên window.location.pathname
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const sidebarLinks = document.querySelectorAll('.sidebar a');
+            sidebarLinks.forEach(link => {
+                const onclick = link.getAttribute('onclick') || '';
+                const match = onclick.match(/navigatePOST\('([^']+)'\)/);
+                if (match && match[1] === currentPath) {
+                    link.classList.add('active-page');
+                }
+            });
+            // Mặc định tab DỊCH TOKEN đang active (đã có class active trong HTML)
+        });
+
+        // ===== CHUYỂN TAB – GIỐNG PIXEL TOOL (dùng event) =====
+        function switchTab(evt, tabName) {
+            // 1. Ẩn tất cả container, xoá active khỏi nav-link
+            document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+            
+            // 2. Hiện container được chọn
+            document.getElementById('tab-' + tabName).classList.add('active');
+            
+            // 3. Đánh dấu active cho thẻ nav-link được click
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.classList.add('active');
+            }
+        }
+
+        // --- HEX SPLITTER ---
+        const sys_list = [
+            "00","01","02","03","04","05","06","07","08","09","0A","0B","0C","0D","0E","0F",
+            "10","11","12","13","14","15","16","17","18","19","1A","1B","1C","1D","1E","1F",
+            "24","25","26","27","28","29","2A","2B","2F","3A","3B","3C","3D","3E","3F",
+            "4C","4D","4E","4F","54","55","56","57","58","59","5A","5B","5C","5D","5E","5F",
+            "61","62","63","64","65","66","67","6A","6B","80","81","82","85","86","8A","8B",
+            "8C","8D","8E","8F","90","91","92","93","94","95","96","97","98","99","9A","9B",
+            "9C","9D","9E","9F","A0","A1","A2","A3","A4","AB","AC","AF","B0","B1","B2","B3",
+            "B4","B5","B6","B7","B8","B9","BA","BB","BC","BD","BE","BF","C1","C2","C3","C4",
+            "C5","C6","C7","CB","CC","CD","CE","CF","D0","D1","D2","D3","E8","E9","EA","EB",
+            "EC","ED","EE","EF","FD","FE",
+            "F0","F1","F2","F3","F4","F5","F6","F7","F8","F9","FA","FB","FC","FD","FE","FF"
+        ];
+
+        function is_all_digits(s) { return /^\d+$/.test(s); }
+
+        function runSplitter() {
+            let input = document.getElementById('hexInput').value.replace(/\s+/g, '').toUpperCase();
+            if (input.length === 0) {
+                document.getElementById('outputSplitter').innerText = "Lỗi: Vui lòng nhập dữ liệu hex.";
+                return;
+            }
+            if (input.length % 2 !== 0) {
+                document.getElementById('outputSplitter').innerText = "Lỗi: Chuỗi Hex có độ dài lẻ. Vui lòng thêm byte (ví dụ: 23) để đủ cặp.";
+                return;
+            }
+            let raw_bytes = [];
+            for (let i = 0; i < input.length; i += 2) raw_bytes.push(input.substring(i, i + 2));
+            let enterable = raw_bytes.filter(b => sys_list.includes(b));
+            if (enterable.length === 0) {
+                document.getElementById('outputSplitter').innerText = "Không tìm thấy byte hợp lệ từ danh sách hệ thống.";
+                return;
+            }
+            let configs = [["A = 1. 00 00 ", 5], ["B = 1. ", 7], ["C = 1. ", 7]];
+            let result_lines = [], chars_in_brackets = [[], [], []];
+            let b_idx = 0;
+            for (let idx = 0; idx < configs.length; idx++) {
+                if (b_idx >= enterable.length) break;
+                let pref = configs[idx][0], count = configs[idx][1];
+                let body_bytes = [], processed = 0;
+                while (processed < count && b_idx < enterable.length) {
+                    let current_byte = enterable[b_idx];
+                    if (processed === count - 2 && !is_all_digits(current_byte)) {
+                        body_bytes.push("30");
+                        processed++;
+                        continue;
+                    } else {
+                        body_bytes.push(current_byte);
+                        let letters = current_byte.replace(/[0-9]/g, '');
+                        if (letters) chars_in_brackets[idx].push(letters);
+                    }
+                    b_idx++; processed++;
+                }
+                let line = pref + body_bytes.join(" ") + " ";
+                if (b_idx < enterable.length || idx === configs.length - 1) {
+                    if (idx === configs.length - 1) {
+                        line += "";
+                        b_idx = enterable.length;
+                    } else {
+                        let exp = enterable[b_idx];
+                        if (!is_all_digits(exp)) line += "x10^ 30:";
+                        else { line += `x10^ ${exp}:`; b_idx++; }
+                    }
+                }
+                result_lines.push(line.trim());
+            }
+            let assigned_output = ["Number of bytes to assign  :"];
+            let labels = ["A", "B", "C"];
+            for (let i = 0; i < 3; i++) {
+                let char_str = chars_in_brackets[i].join(" ");
+                assigned_output.push(`${labels[i]}  = [ ${char_str || ""} ]`);
+            }
+            document.getElementById('outputSplitter').innerText = result_lines.join("\n") + "\n\n" + assigned_output.join("\n");
+        }
+
+        // --- TOKEN TRANSLATOR ---
+        const folderImages = ["/hex/bangma1.png", "/hex/bangma2.png", "/hex/phuluc.png"];
+        let currentIdx = -1;
+        function changeImg() {
+            if (folderImages.length === 0) return;
+            currentIdx = (currentIdx + 1) % folderImages.length;
+            const wrapper = document.getElementById('imgWrapper');
+            const img = document.getElementById('displayImg');
+            wrapper.style.display = "block";
+            img.src = folderImages[currentIdx];
+            img.onerror = () => { 
+                wrapper.style.display = "none";
+                alert("Không thể tải hình ảnh: " + folderImages[currentIdx] + "\n\nĐảm bảo file ảnh tồn tại trong thư mục hex/");
+            };
+        }
+
+        const tokens = ["@", "<01>", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "▯", "@", "@", "@", "@", "@", "@", "𝒊", "𝒆", "𝜋", ":", "$", "?", "@", "@", "@", "@", "@", "@", ",", "x10", ".", "@", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "𝗔", "𝗕", "𝗖", "𝗗", "𝗘", "𝗙", "M", "Ans", "A", "B", "C", "D", "E", "F", "𝒙", "𝒚", "PreAns", "𝒛", "𝜃", "@", "@", "@", "∑(", "∫(", "d/d𝒙(", "∏(", "@", "@", "@", "@", "Min(", "Max(", "Mean(", "Sum(", "@", "@", "@", "@", "(", "P(", "Q(", "R(", "Not(", "Neg(", "Conjg(", "Arg(", "Abs(", "Rnd(", "Det(", "Trn(", "sinh(", "cosh(", "tanh(", "sinh⁻¹(", "cosh⁻¹(", "tanh⁻¹(", "𝒆^(", "10^(", "√(", "ln(", "³√(", "sin(", "cos(", "tan(", "sin⁻¹(", "cos⁻¹(", "tan⁻¹(", "log(", "Pol(", "Rec(", "@", "@", "@", "Int(", "Intg(", "Ref(", "Rref(", "RanInt#(", "GCD(", "LCM(", "RndFix(", "@", "@", "@", "@", "ReP(", "ImP(", "Identity(", "UnitV(", "Angle(", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "@", "or", "xor", "xnor", "and", "@", "=", "+", "-", "×", "÷", "÷R", "⋅", "∠", "𝗣", "𝗖", "@", "@", "@", "@", "@", "@", "@", "@", "@", "x̂", "ŷ", "x̂₁", "x̂₂", "@", "@", "@", "@", "−", "b", "o", "d", "h", "@", "@", "@", "⌟", "^(", "ˣ√(", "@", "@", "@", "@", "@", ")", "▸t", "▸a+b𝒊", "▸r∠𝜃", "⁻¹", "²", "³", "%", "!", "°", "ʳ", "ᵍ", "▫", "𝐄", "𝐏", "𝐓", "𝐆", "𝐌", "𝐤", "𝐦", "𝝁", "𝐧", "𝐩", "𝐟", "@", "▸Simp", "@", "@", "@", "@", "@"];
+        
+        const hexToChar = {
+            "20":" ","40":"@","5F":"_","1A":"&","2D":"-","2B":"+","28":"(","29":")","2F":"/","2A":"*","27":"'","3A":":","21":"!","3F":"?","7C":"|","98":"√","26":"÷","24":"×","5E":"^","85":"°","7B":"{","7D":"}","5B":"[","5D":"]","25":"%","2E":".","2C":",",
+            "61":"a","6E":"n","FD24":"an","F451":"Á","F471":"á","F450":"À","F470":"à","F454":"Ả","F474":"ả","F453":"Ã","F473":"ã","F452":"Ạ","F472":"ạ","F410":"Ă","F465":"ă","F455":"Ắ","F475":"ắ","F411":"Ằ","F431":"ằ","F412":"Ẳ","F432":"ẳ","F490":"Ẵ","F456":"ẵ","F491":"Ặ","F457":"ặ","F413":"Â","F433":"â","F414":"Ầ","F434":"ầ","F415":"Ẩ","F435":"ẩ","F416":"Ẫ","F436":"ẫ","F492":"Ậ","F477":"ậ","F417":"É","F437":"é","F459":"È","F479":"è","F458":"Ẻ","F478":"ẻ","F45B":"Ẽ","F47B":"ẽ","F418":"Ẹ","F438":"ẹ","F419":"Ê","F439":"ê","F45A":"Ế","F47A":"ế","F41A":"Ề","F43A":"ề","F41B":"Ể","F43B":"ể","F41C":"Ễ","F43C":"ễ","F41D":"Ệ","F43D":"ệ","F41E":"Í","F43E":"í","F45D":"Ì","F47D":"ì","F45C":"Ỉ","F47C":"ỉ","F42B":"Ĩ","F47F":"ĩ","F45E":"Ị","F47E":"ị","F428":"Ó","F448":"ó","F463":"Ò","F483":"ò","F462":"Ỏ","F482":"ỏ","F429":"Õ","F486":"õ","F430":"Ọ","F485":"ọ","F42A":"Ô","F487":"ô","F464":"Ố","F484":"ố","F41F":"Ồ","F43F":"ồ","F420":"Ổ","F440":"ổ","F421":"Ỗ","F441":"ỗ","F422":"Ộ","F442":"ộ","F423":"Ơ","F445":"ơ","F444":"Ớ","F44D":"ớ","F425":"Ờ","F44E":"ờ","F426":"Ở","F446":"ở","F427":"Ỡ","F447":"ỡ","F443":"Ợ","F46E":"ợ","F424":"Ú","F48E":"ú","F46A":"Ù","F48A":"ù","F469":"Ủ","F489":"ủ","F42C":"Ũ","F48C":"ũ","F42D":"Ụ","F48B":"ụ","F42E":"Ư","F488":"ư","F44F":"Ứ","F46F":"ứ","F44A":"Ừ","F461":"ừ","F44B":"Ử","F467":"ử","F44C":"Ữ","F468":"ữ","F48F":"Ự","F476":"ự","F449":"Ý","F481":"ý","F46D":"Ỳ","F48D":"ỳ","F42F":"Ỷ","F45F":"ỷ","F493":"Ỹ","F466":"ỹ","F494":"Ỵ","F46B":"ỵ","F495":"Đ","F46C":"đ",
+            "F4A0":"一","F4A1":"二","F4A2":"三","F4A3":"十","F4A4":"日","F4A5":"月"
+        };
+        for(let i = 0; i < 10; i++) hexToChar["3" + i] = i.toString();
+        for(let i = 0; i < 26; i++) {
+            let upper = (0x41 + i).toString(16).toUpperCase();
+            let lower = (0x61 + i).toString(16).toUpperCase();
+            hexToChar[upper] = String.fromCharCode(65 + i);
+            hexToChar[lower] = String.fromCharCode(97 + i);
+        }
+        const charToHex = {};
+        for(let k in hexToChar) if(hexToChar[k] !== "@") charToHex[hexToChar[k]] = k;
+        charToHex["a"] = "61"; charToHex["n"] = "6E";
+
+        const hexArea = document.getElementById('hexArea');
+        const textArea = document.getElementById('textArea');
+        const tokenArea = document.getElementById('tokenArea');
+
+        function syncFromHex() {
+            let clean = hexArea.value.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+            let bytes = [], i = 0;
+            while(i < clean.length) {
+                let b = clean.substr(i, 2);
+                if(b.startsWith('F') && i + 3 < clean.length) { bytes.push(clean.substr(i, 4)); i += 4; }
+                else if(b.length === 2) { bytes.push(b); i += 2; }
+                else break;
+            }
+            textArea.value = bytes.map(b => hexToChar[b] || "").join("");
+            tokenArea.value = bytes.map(b => {
+                if(b.length === 4) return (b === "FD24" ? "an" : `<${b}>`);
+                let tokenIndex = parseInt(b, 16);
+                return tokens[tokenIndex] || "@";
+            }).join(" ");
+        }
+
+        function syncFromText() {
+            let val = textArea.value;
+            let res = [];
+            for(let char of val) res.push(charToHex[char] || "??");
+            hexArea.value = res.join(" ");
+            syncFromHex();
+        }
+
+        function clearAll() { hexArea.value = textArea.value = tokenArea.value = ""; }
+        function copyHex() {
+            hexArea.select();
+            hexArea.setSelectionRange(0, 99999);
+            try { navigator.clipboard.writeText(hexArea.value).then(() => alert("Đã chép mã Hex!")); }
+            catch { document.execCommand('copy'); alert("Đã chép mã Hex!"); }
+        }
+
+        hexArea.addEventListener('input', syncFromHex);
+        textArea.addEventListener('input', syncFromText);
+        // Không gọi switchTab ở đây nữa, class active đã có sẵn trong HTML
+    </script>
+</body>
+</html>

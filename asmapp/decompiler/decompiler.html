@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DECOMPILER</title>
+    <style>
+        :root { --primary: #3b82f6; --bg: #f8fafc; --dark: #1e293b; --error: #ef4444; }
+        body { background: var(--bg); font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
+        
+        .back-nav { width: 100%; max-width: 600px; margin-bottom: 15px; }
+        .back-nav a { text-decoration: none; color: #2563eb; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 5px; }
+
+        .card { background: white; width: 100%; max-width: 600px; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h2 { color: #1e293b; text-align: left; margin-bottom: 25px; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; font-weight: 800; text-transform: uppercase; }
+        h2 i { color: #fbbf24; font-style: normal; }
+        
+        label { display: block; margin-bottom: 10px; font-weight: 600; color: #64748b; font-size: 0.85rem; text-transform: uppercase; }
+        textarea { width: 100%; height: 180px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 15px; font-family: monospace; font-size: 15px; resize: none; box-sizing: border-box; transition: all 0.3s; }
+        textarea:focus { outline: none; border-color: var(--primary); }
+        
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+        select { padding: 12px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: white; font-size: 1rem; color: #3b82f6; font-weight: 500; cursor: pointer; outline: none; }
+        
+        .btn-main { background: #3b82f6; color: white; border: none; padding: 14px; border-radius: 10px; font-weight: bold; font-size: 1rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .result-label-row { margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .clear-btn { background: #e54c4c; color: white; border: none; padding: 5px 15px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; font-weight: 500; }
+        
+        /* Khung kết quả linh hoạt */
+        #output { 
+            background: #1e293b; 
+            color: #4ade80; 
+            padding: 15px; 
+            border-radius: 15px; 
+            min-height: 80px; 
+            font-family: 'Fira Code', monospace; 
+            font-size: 14px; 
+            white-space: pre-wrap; 
+            word-break: break-all; 
+            margin-top: 10px; 
+            line-height: 1.5;
+            transition: all 0.4s ease;
+        }
+        #output.active { min-height: 300px; }
+        #output.error { color: #f87171; }
+
+        .footer-cre { margin-top: 25px; color: #94a3b8; font-size: 0.8rem; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="back-nav">
+        <a href="../index.html">← Quay lại trang chủ</a>
+    </div>
+
+    <div class="card">
+        <h2><i>⚡</i> DECOMPILER</h2>
+        
+        <label>MÃ NGUỒN (HEX)</label>
+        <textarea id="hexInput" placeholder="dán mã vào đây..."></textarea>
+        
+        <div class="controls">
+            <select id="model">
+                <option value="580vnx" selected>580VNX</option>
+                <option value="880btg">880BTG</option>
+            </select>
+            <button class="btn-main" onclick="decompile()">GIẢI MÃ</button>
+        </div>
+
+        <div class="result-label-row">
+            <label>KẾT QUẢ</label>
+            <button class="clear-btn" onclick="clearAll()">Xóa</button>
+        </div>
+        <div id="output">...</div>
+    </div>
+
+    <div class="footer-cre">Cre: luongvantam</div>
+
+    <script>
+        async function decompile() {
+            const hex = document.getElementById('hexInput').value.trim();
+            const model = document.getElementById('model').value;
+            const output = document.getElementById('output');
+
+            if (!hex) {
+                output.innerText = "⚠️ Vui lòng dán mã hex vào!";
+                output.classList.add('error');
+                return;
+            }
+
+            // Trạng thái chờ xử lý
+            output.innerText = '⏳ Đang giải mã...';
+            output.classList.remove('error', 'active');
+            output.style.color = "#fbbf24"; // Màu vàng khi đang chạy
+
+            try {
+                // Logic gửi dữ liệu đúng với backend decompiler
+                const response = await fetch('/decompile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        model_name: model, 
+                        hex_content: hex 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    output.innerText = "❌ Lỗi: " + data.error;
+                    output.classList.add('error');
+                    output.classList.remove('active');
+                } else {
+                    // Thành công: Hiện to khung và đổ mã ASM
+                    output.innerText = data.asm || "Không có dữ liệu.";
+                    output.classList.add('active');
+                    output.style.color = "#4ade80"; // Màu xanh lá khi thành công
+                }
+            } catch (error) {
+                output.innerText = `❌ Lỗi kết nối: ${error.message}`;
+                output.classList.add('error');
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('hexInput').value = '';
+            const output = document.getElementById('output');
+            output.innerText = '...';
+            output.classList.remove('error', 'active');
+            output.style.color = "#4ade80";
+        }
+    </script>
+</body>
+</html>

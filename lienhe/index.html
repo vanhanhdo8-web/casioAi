@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liên hệ - Casio Tool</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        :root {
+            --casio-blue: #0066ff;
+            --bg-body: #f5f7fa;
+            --white: #ffffff;
+            --text-dark: #2d3436;
+            --radius-soft: 25px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-dark); overflow-x: hidden; }
+
+        /* HEADER XANH ĐẬM GỐC */
+        header {
+            background-color: var(--casio-blue);
+            height: 65px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            position: sticky;
+            top: 0; z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .menu-btn {
+            width: 25px; height: 18px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            cursor: pointer; margin-right: 20px;
+        }
+        .menu-btn span {
+            display: block; height: 3px; width: 100%;
+            background-color: var(--white);
+            border-radius: 10px; transition: 0.3s;
+        }
+
+        /* Hiệu ứng nút menu khi mở */
+        .menu-btn.open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+        .menu-btn.open span:nth-child(2) { opacity: 0; }
+        .menu-btn.open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+        .logo { 
+            font-size: 22px; font-weight: 700; color: var(--white); 
+        }
+
+        /* SIDEBAR ĐẦY ĐỦ CHỨC NĂNG CŨ */
+        .sidebar {
+            position: fixed; top: 0; left: -280px;
+            width: 280px; height: 100%;
+            background: var(--white); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1050; padding: 90px 15px 20px;
+        }
+        .sidebar.active { left: 0; box-shadow: 10px 0 30px rgba(0,0,0,0.05); }
+        
+        .sidebar a {
+            display: flex; align-items: center;
+            padding: 12px 18px; text-decoration: none;
+            color: var(--text-dark); font-weight: 600; margin-bottom: 5px;
+            border-radius: 15px; transition: 0.2s;
+            cursor: pointer;
+        }
+        .sidebar a i { margin-right: 15px; color: var(--casio-blue); width: 22px; text-align: center; font-size: 18px; }
+        .sidebar a:hover, .active-page { background: #f0f6ff; color: var(--casio-blue); }
+
+        /* MAIN CONTENT */
+        .main-container {
+            max-width: 600px; margin: 40px auto; padding: 0 20px;
+        }
+
+        .intro { text-align: center; margin-bottom: 35px; }
+        .intro h1 { font-size: 28px; font-weight: 800; margin-bottom: 10px; color: #1e272e; }
+        .intro p { color: #636e72; font-size: 16px; }
+
+        .contact-list {
+            display: flex; flex-direction: column; gap: 15px;
+        }
+
+        .contact-item {
+            background: var(--white);
+            padding: 15px;
+            border-radius: var(--radius-soft);
+            display: flex; align-items: center;
+            text-decoration: none;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border: 1px solid transparent;
+        }
+
+        .contact-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border-color: #e0e7ff;
+        }
+
+        /* MÀU SẮC BIỂU TƯỢNG GỐC */
+        .icon-box {
+            width: 55px; height: 55px;
+            border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; color: white;
+            margin-right: 18px;
+            flex-shrink: 0;
+        }
+
+        .fb-color { background: #1877f2; }
+        .dis-color { background: #5865f2; }
+        .mail-color { background: #ea4335; }
+
+        .info { flex-grow: 1; }
+        .info .label { font-size: 12px; color: #b2bec3; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .info .value { font-size: 17px; font-weight: 700; color: var(--text-dark); }
+
+        .fa-chevron-right { color: #dfe6e9; font-size: 14px; }
+
+        /* OVERLAY */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.15); display: none; z-index: 1040; backdrop-filter: blur(4px);
+        }
+        .overlay.active { display: block; }
+
+        footer { text-align: center; margin-top: 60px; padding: 30px; color: #b2bec3; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="menu-btn" id="menuBtn" onclick="toggleMenu()">
+            <span></span><span></span><span></span>
+        </div>
+        <div class="logo">Casio Tool</div>
+    </header>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <nav class="sidebar" id="sidebar">
+        <a onclick="navigatePOST('/'); toggleMenu()"><i class="fa-solid fa-house"></i> Home</a>
+        <a onclick="navigatePOST('/hex'); toggleMenu()"><i class="fa-solid fa-calculator"></i> Tiện ích Casio</a>
+        <a onclick="navigatePOST('/asm'); toggleMenu()"><i class="fa-solid fa-microchip"></i> Tiện ích ROP</a>
+        <a onclick="navigatePOST('/rop'); toggleMenu()"><i class="fa-solid fa-code"></i> Tra rop</a>
+        <a onclick="navigatePOST('/spell'); toggleMenu()"><i class="fa-solid fa-wand-magic-sparkles"></i> Spell 1 line</a>
+        <a onclick="navigatePOST('/pixel'); toggleMenu()"><i class="fa-solid fa-border-all"></i> Pixel Tool</a>
+        <a onclick="navigatePOST('/donate'); toggleMenu()"><i class="fa-solid fa-heart"></i> Ủng hộ</a>
+        <a onclick="navigatePOST('/lienhe'); toggleMenu()" class="active-page"><i class="fa-solid fa-address-book"></i> Liên hệ</a>
+    </nav>
+
+    <div class="main-container">
+        <div class="intro">
+            <h1>Kết nối với mình</h1>
+            <p>Mọi góp ý của bạn giúp Casio Tool ngày càng tốt hơn!</p>
+        </div>
+
+        <div class="contact-list">
+            <a href="https://www.facebook.com/share/177mrGAVNZ/?mibextid=wwXIfr" target="_blank" class="contact-item">
+                <div class="icon-box fb-color"><i class="fa-brands fa-facebook-f"></i></div>
+                <div class="info">
+                    <div class="label">Facebook</div>
+                    <div class="value">Hanh Đo</div>
+                </div>
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+
+            <a href="https://discord.gg/JWuMMSEsSj" target="_blank" class="contact-item">
+                <div class="icon-box dis-color"><i class="fa-brands fa-discord"></i></div>
+                <div class="info">
+                    <div class="label">Cộng đồng Discord</div>
+                    <div class="value">discord.gg/JWuMMSEsSj</div>
+                </div>
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+
+            <a href="mailto:vanhanhdo9@gmail.com" class="contact-item">
+                <div class="icon-box mail-color"><i class="fa-solid fa-envelope"></i></div>
+                <div class="info">
+                    <div class="label">Hỗ trợ qua Email</div>
+                    <div class="value">vanhanhdo9@gmail.com</div>
+                </div>
+                <i class="fa-solid fa-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <footer>© 2026 Casio Tool. Thiết kế bởi Hanh.</footer>
+
+    <script>
+        function toggleMenu() {
+            document.getElementById('menuBtn').classList.toggle('open');
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('overlay').classList.toggle('active');
+        }
+
+        async function navigatePOST(route) {
+            try {
+                // Giữ nguyên logic xử lý chuyển trang của bạn
+                await fetch(route, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: route, timestamp: new Date().toISOString() })
+                });
+                window.location.href = route;
+            } catch (e) { 
+                window.location.href = route; 
+            }
+        }
+    </script>
+</body>
+</html>

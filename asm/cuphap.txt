@@ -1,0 +1,292 @@
+Hướng dẫn sử dụng Compiler cho Casio fx-580VN X và fx-880 BTG
+
+Tài liệu này mô tả cú pháp và cách sử dụng compiler dành cho hai dòng máy tính Casio fx-580VN X và fx-880 BTG. Compiler nhận đầu vào là mã assembly (dạng text) và xuất ra dạng hex hoặc dãy phím bấm, phục vụ cho việc tạo các đoạn mã khai thác (ROP chain) trên máy tính.
+
+--
+
+1. Giới thiệu
+
+Compiler được xây dựng dựa trên hai file chính:
+
+· compiler_.py – script chạy compiler cho một model cụ thể.
+· libcompiler.py – thư viện chứa các hàm xử lý chính.
+
+Mỗi model máy (580, 880) có bộ dữ liệu riêng: file rom.bin, disas.txt, gadgets, labels,... nằm trong thư mục tương ứng (ví dụ asmapp/compiler/580vnx/). Khi gọi compiler, bạn cần chọn đúng model.
+
+---
+
+2. Tổng quan cú pháp
+
+· Mỗi dòng có thể chứa một lệnh, một nhãn, hoặc dữ liệu.
+· Comment bắt đầu bằng # (đến hết dòng).
+· Comment nhiều dòng dùng /* và */.
+· Các lệnh không phân biệt chữ hoa/thường, ngoại trừ lệnh str (liên quan đến chuỗi) và các định nghĩa (sẽ giữ nguyên).
+· Khoảng trắng xung quanh dấu câu được tự động loại bỏ.
+
+---
+
+3. Các lệnh cơ bản
+
+3.1. Nhãn (Label)
+
+```assembly
+ten_nhan:
+```
+
+Đánh dấu một vị trí trong chương trình. Nhãn đặc biệt home: xác định điểm bắt đầu thực thi (nếu không có, mặc định là đầu chương trình).
+
+3.2. Dữ liệu hex
+
+· Số hex cơ bản: 0x<hex> – chèn các byte theo thứ tự little‑endian.
+  Ví dụ: 0x1234 chèn hai byte 34 12.
+· Số hex có cộng/trừ: 0x<hex>+<số> hoặc 0x<hex>-<số>.
+  Ví dụ: 0x1000+5 tương đương 0x1005.
+· Chuỗi hex: hex <chuỗi_hex> – chèn các byte từ chuỗi hex (có thể có khoảng trắng).
+  Ví dụ: hex e6 4d chèn E6 4D.
+
+3.3. Gọi chương trình con
+
+· call <địa_chỉ_hex> – gọi chương trình tại địa chỉ.
+  Ví dụ: call 0x09450
+· call <tên_gadget> – gọi một hàm dựng sẵn (gadget) được định nghĩa trong file gadgets.
+  Ví dụ: call pop xr0
+· goto <nhãn> – nhảy đến nhãn. Tương đương:
+  ```assembly
+  er6 = adr_of [-2] <nhãn>
+  call sp=er6,pop er8
+  ```
+
+3.4. Lấy địa chỉ của nhãn
+
+· adr_of <nhãn> – lấy địa chỉ (2 byte) của nhãn, dùng trong biểu thức.
+· adr_of [offset] <nhãn> – lấy địa chỉ nhãn cộng với offset (có thể âm).
+· adr_of [addr1->addr2] <nhãn> – dạng đặc biệt tính offset dựa trên hiệu hai địa chỉ.
+
+Lệnh này sẽ được thay thế bằng 2 byte địa chỉ sau khi toàn bộ chương trình được xác định vị trí.
+
+3.5. Gán giá trị cho thanh ghi
+
+Cú pháp:
+
+```assembly
+<tên_thanh_ghi> = <giá_trị> [, <giá_trị2> ...]
+```
+
+Kích thước thanh ghi:
+
+· r – 1 byte
+· e – 2 byte
+· x – 4 byte
+· q – 8 byte
+
+Ví dụ:
+
+```assembly
+xr0 = adr_of length, 0x01, 0x00
+er6 = adr_of [-2] home
+```
+
+Lệnh này được dịch thành call pop <tên_thanh_ghi> theo sau là các giá trị.
+
+3.6. Các lệnh tính toán địa chỉ và độ dài
+
+· adr_arith [offset1] <label1> - adr_arith [offset2] <label2>
+  Tính hiệu (label1+offset1) - (label2+offset2) và lưu kết quả dưới dạng 1 byte.
+· pr_length – chèn 2 byte là tổng số byte của chương trình tại thời điểm kết thúc.
+· remaining_length – chèn 2 byte là số byte từ vị trí hiện tại đến cuối chương trình.
+
+3.7. Lệnh str – Xử lý chuỗi
+
+Chuyển chuỗi ký tự thành mã hex tương ứng với bảng mã của máy (dùng text.py). Có ba cách:
+
+· Định nghĩa biến chuỗi: str <tên_biến> "<chuỗi>"
+  Ví dụ: str msg "CASIO"
+· Sử dụng biến chuỗi: str <tên_biến> – chèn hex của chuỗi đã định nghĩa.
+· Chuỗi trực tiếp: str "<chuỗi>" – chèn hex ngay.
+
+Ký tự ~ trong chuỗi được tự động chuyển thành khoảng trắng.
+
+3.8. Python eval – $<biểu_thức>
+
+Dòng bắt đầu bằng $ sẽ được đánh giá như biểu thức Python. Kết quả có thể là chuỗi (được xử lý tiếp) hoặc list/tuple các lệnh.
+Ví dụ:
+
+```assembly
+$ f"call {hex(0x1234)}"
+```
+
+3.9. Lệnh ghép
+
+Nhiều lệnh trên cùng một dòng, phân cách bởi dấu ;.
+Ví dụ:
+
+```assembly
+call pop xr0 ; 0x1234 ; call pop er6
+```
+
+---
+
+4. Các lệnh nâng cao (mở rộng)
+
+Lưu ý: Các lệnh dưới đây có thể chưa được hỗ trợ trong phiên bản hiện tại, nhưng được mô tả trong tài liệu gốc.
+
+4.1. Định nghĩa hàm (def)
+
+```assembly
+def ten_ham(param1, param2, ...):
+    lệnh 1
+    lệnh 2
+    ...
+```
+
+Các dòng bên trong phải được thụt đầu dòng (dấu cách hoặc tab). Khi gọi hàm, các tham số sẽ được thay thế.
+Gọi hàm: ten_ham(giá_trị1, giá_trị2, ...)
+
+Các hàm có thể được lưu trong file def.txt và tự động nạp khi chạy compiler.
+
+4.2. Lệnh fill
+
+fill(giá_trị, số_lần) – lặp lại một byte nhiều lần.
+Ví dụ: fill(AA, 4) sinh ra AA AA AA AA.
+
+4.3. Định nghĩa gadget, cmd, hex
+
+· gadget <tên> = <mã_gadget> – định nghĩa một gadget mới.
+· cmd <tên_mới> = <tên_cũ> – đặt bí danh cho lệnh.
+· hex <tên> = <giá_trị> – định nghĩa hằng số hex (có thể dùng 0x hoặc không).
+
+---
+
+5. Sự khác biệt giữa model 580 và 880
+
+Mặc dù cú pháp cơ bản giống nhau, nhưng có một số điểm riêng cần lưu ý:
+
+Đặc điểm fx-580VN X fx-880 BTG
+Thư mục model asmapp/compiler/580vnx/ asmapp/compiler/880btg/
+ROM rom.bin (bản 580) rom.bin (bản 880)
+Các lệnh đặc trưng loop580, backup580 loop880, backup880
+Hằng số trong vòng lặp Dùng 0x8932 Dùng hex e6 4d
+Địa chỉ SP mặc định 0xE9E0 (trong compiler_.py cũ) 0xE330 (trong compiler_.py mới)
+Gadgets và labels Riêng cho từng model Riêng cho từng model
+
+Khi gửi yêu cầu tới server, bạn cần chỉ định đúng model (ví dụ "model": "580vnx" hoặc "model": "880btg").
+
+Các lệnh dành riêng cho 580
+
+· loop580: Tạo vòng lặp đặc trưng, sử dụng 0x8932.
+· backup580: Sao lưu dữ liệu, gọi địa chỉ 0x09450.
+
+Các lệnh dành riêng cho 880
+
+· loop880: Tạo vòng lặp, sử dụng hex e6 4d.
+· backup880: Sao lưu dữ liệu, gọi địa chỉ 0x14DE8.
+
+Trước khi dùng các lệnh này, cần khai báo hai biến:
+
+```assembly
+backup is <tên_biến_backup>
+addrcopy is <tên_biến_addrcopy>
+```
+
+Ví dụ:
+
+```assembly
+backup is my_backup
+addrcopy is my_copy
+loop580
+```
+
+---
+
+6. Sử dụng compiler
+
+6.1. Chạy thủ công với script
+
+Vào thư mục model (ví dụ asmapp/compiler/580vnx/) và chạy:
+
+```bash
+echo "your_assembly_code" | python compiler_.py -f hex
+```
+
+Hoặc đọc từ file:
+
+```bash
+python compiler_.py -f hex < input.txt
+```
+
+Các tùy chọn:
+
+· -f hex – xuất ra dạng hex.
+· -f key – xuất ra dạng phím bấm.
+· Các tùy chọn khác: -g, -gb, -gn, -p dùng để tối ưu gadget (xem thêm trong tài liệu gốc).
+
+6.2. Sử dụng qua server Flask
+
+Server cung cấp endpoint /asm (POST) với JSON:
+
+```json
+{
+  "code": "nội dung assembly",
+  "model": "580vnx"  // hoặc "880btg"
+}
+```
+
+Server trả về kết quả dạng hex trong stdout.
+
+Nếu dùng giao diện web, vào đường dẫn /asm để thử nghiệm trực tiếp.
+
+---
+
+7. Ví dụ
+
+Ví dụ 1: Chương trình đơn giản cho 580
+
+```assembly
+home:
+    call pop xr0
+    adr_of my_data
+    pr_length
+    call 0x09450
+
+my_data:
+    str "CASIO"
+    0x1234
+```
+
+Chạy: echo "..." | python compiler_.py -f hex
+
+Ví dụ 2: Sử dụng loop880 (cho 880)
+
+```assembly
+backup is save_area
+addrcopy is copy_area
+loop880
+```
+
+Kết quả sẽ là một đoạn mã dài hơn tự động sinh ra.
+
+Ví dụ 3: Tính hiệu địa chỉ
+
+```assembly
+start:
+    nop
+end:
+    adr_arith [0] end - adr_arith [0] start
+```
+
+Kết quả chèn 1 byte là độ chênh lệch giữa hai nhãn.
+
+---
+
+8. Ghi chú quan trọng
+
+· Các lệnh adr_of, pr_length, remaining_length chỉ có giá trị sau khi toàn bộ chương trình được xử lý.
+· Nhãn phải là duy nhất.
+· Độ dài chương trình bị giới hạn bởi vùng nhớ cho phép (thường < 100 byte đối với chế độ overflow).
+· Để debug, xem các thông báo note in ra stderr (hiển thị trong log server hoặc terminal).
+· Các file phụ thuộc như text.py, get_char_table.py phải nằm trong thư mục chứa libcompiler.py hoặc trong sys.path.
+· Nếu gặp lỗi "không xác định", hãy kiểm tra lại đường dẫn và sự tồn tại của các file cần thiết (rom.bin, disas.txt, gadgets, labels).
+
+---
+
+Tài liệu này được biên soạn dựa trên mã nguồn compiler và hướng dẫn gốc. Có thể cập nhật khi có thay đổi.

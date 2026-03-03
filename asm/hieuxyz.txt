@@ -1,0 +1,266 @@
+Hướng dẫn sử dụng Trình biên dịch và Công cụ
+
+Hướng dẫn này cung cấp các chỉ dẫn chi tiết về cách sử dụng trình biên dịch và các công cụ liên quan để xử lý và biên dịch mã nguồn. Cú pháp và các ví dụ sử dụng dựa trên các tập lệnh compiler.py và libcompiler.py được cung cấp.
+
+Mục lục
+
+1. Giới thiệu
+2. Tổng quan về Cú pháp
+3. Cách sử dụng Trình biên dịch
+4. Ví dụ
+5. Ghi chú bổ sung
+6. Cấu trúc Mã nguồn
+
+Giới thiệu
+
+Tập lệnh trình biên dịch (compiler.py) và thư viện (libcompiler.py) phối hợp với nhau để xử lý và biên dịch mã nguồn. Trình biên dịch đọc các tệp đầu vào khác nhau, xử lý mã và xuất ra kết quả đã biên dịch. Thư viện cung cấp các hàm thiết yếu để xử lý phông chữ, ký hiệu và các thao tác cần thiết khác.
+
+Tổng quan về Cú pháp
+
+Cú pháp cho mã nguồn được xử lý bởi trình biên dịch như sau:
+
+Các lệnh
+
+· Dòng chú thích hoặc chú thích nhiều dòng: Được sử dụng để ghi chú hoặc bỏ qua để trình biên dịch không xử lý, sử dụng cú pháp #<nội dung> hoặc /*<nội dung>*/ (cho chú thích nhiều dòng).
+  ```plaintext
+  # đây là dòng chú thích
+  /* dòng chú thích 1
+  dòng chú thích 2
+  ...
+  */ #kết thúc chú thích nhiều dòng
+  ```
+· Nhãn: Định nghĩa nhãn sử dụng cú pháp nhãn:. Nhãn có thể được dùng để đánh dấu các điểm cụ thể trong mã.
+  ```plaintext
+  home:
+  ```
+· Dữ liệu thập lục phân: Chèn dữ liệu thập lục phân sử dụng cú pháp 0x<các_chữ_số_thập_lục_phân>.
+  ```plaintext
+  0x1234
+  ```
+· Gọi (Call): Thực hiện gọi đến địa chỉ hoặc hàm dựng sẵn sử dụng cú pháp call <địa_chỉ> hoặc call <hàm_dựng_sẵn>.
+  ```plaintext
+  call 0x1234
+  call built_in_function
+  ```
+· Goto (Nhảy): Nhảy đến một nhãn sử dụng cú pháp goto <nhãn>.
+  ```plaintext
+  goto label
+  ```
+· Địa chỉ của (Address Of): Lấy địa chỉ của một nhãn sử dụng cú pháp adr_of [độ_dịch_chuyển] <nhãn> hoặc adr_of <nhãn>.
+  ```plaintext
+  adr_of [10] label
+  adr_of label
+  ```
+· Gán thanh ghi: Gán giá trị cho các thanh ghi sử dụng cú pháp thanh_ghi = <giá_trị> [, adr_of <nhãn> [, ...]].
+  ```plaintext
+  r1 = 0x1234, adr_of label
+  ```
+· Python Eval (Đánh giá biểu thức Python): Đánh giá biểu thức Python sử dụng cú pháp $<biểu_thức>.
+  ```plaintext
+  $eval_expression
+  ```
+· Org (Định vị): Chỉ định địa chỉ của một vị trí sau khi ánh xạ sử dụng cú pháp org <biểu_thức>.
+  ```plaintext
+  org 0x1234
+  ```
+· Số học địa chỉ: Thực hiện tính toán số học địa chỉ sử dụng cú pháp adr_arith [độ_dịch_chuyển] <nhãn> - adr_arith [độ_dịch_chuyển] <nhãn>.
+  ```plaintext
+  adr_arith [10] label1 - adr_arith [20] label2
+  ```
+· Độ dài chương trình: Hoãn việc tính toán độ dài chương trình sử dụng cú pháp pr_length.
+  ```plaintext
+  pr_length
+  ```
+· Xử lý chuỗi: Xử lý chuỗi sử dụng cú pháp str <biến> "<chuỗi>", str <biến>, hoặc str "<chuỗi>".
+  ```plaintext
+  str var "Hello, World!"
+  str var
+  str "Hello, World!"
+  ```
+
+Câu lệnh phức hợp
+
+· Câu lệnh phức hợp: Kết hợp nhiều câu lệnh sử dụng cú pháp <câu_lệnh1> ; <câu_lệnh2> ; ....
+  ```plaintext
+  call 0x1234 ; goto label
+  ```
+
+Cách sử dụng Trình biên dịch
+
+Để sử dụng trình biên dịch, hãy làm theo các bước sau:
+
+1. Chuẩn bị các Tệp đầu vào: Đảm bảo bạn có các tệp đầu vào cần thiết (được cung cấp):
+   · rom.bin: Tệp nhị phân ROM.
+   · disas.txt: Tệp mã hợp ngữ đã dịch ngược (disassembly).
+   · gadgets: Tệp các đoạn mã (gadgets).
+   · labels: Tệp nhãn.
+   · ../labels_sfr: Tệp nhãn bổ sung.
+2. Chạy Trình biên dịch: Thực thi tập lệnh trình biên dịch với các tùy chọn mong muốn. Tập lệnh hỗ trợ các đối số sau:
+   · -t, --target: Chỉ định mục tiêu (mặc định là none).
+   · -f, --format: Chỉ định định dạng đầu ra (hex hoặc key, mặc định là key).
+   · -g, --gadget-adr: Chỉ định địa chỉ của gadget để tối ưu hóa.
+   · -gb, --gadget-bin: Chỉ định gadget ở dạng nhị phân (big endian).
+   · -gn, --gadget-nword: Chỉ định độ dài của gadget để tối ưu hóa (vô hạn nếu không được cung cấp).
+   · -p, --preview-count: Chỉ định số dòng để xem trước (chế độ tối ưu hóa gadget).
+   Ví dụ lệnh:
+   ```sh
+   python3 compiler.py -t none -f key -g 0x1234 -gb 0x4567 -gn 2 -p 10
+   ```
+3. Chạy Trình biên dịch với tập lệnh có sẵn: Chúng tôi đã tạo một tập lệnh để chạy trình biên dịch đính kèm (580vnxcompiler.bat cho Windows và run.sh cho Linux) dành cho model casio fx580vnx. Nó sẽ nhận tệp chương trình của bạn cần xử lý trong thư mục 580vnx_ropchain và xuất ra dưới dạng hex (-f hex).
+   Lệnh (Đối với Windows, bạn có thể chạy 580vnxcompiler.bat bằng cách nhấp đúp vào nó):
+   ```sh
+   bash run.sh
+   ```
+4. Xử lý Chương trình: Trình biên dịch sẽ đọc chương trình từ đầu vào chuẩn (stdin), xử lý nó và xuất ra kết quả đã biên dịch.
+
+Ví dụ
+
+Ví dụ 1: Chương trình Đơn giản
+
+```plaintext
+home:
+    0x1234
+    call 0x5678
+    goto end
+end:
+```
+
+Ví dụ 2: Sử dụng Nhãn và Địa chỉ của
+
+```plaintext
+start:
+    adr_of label1
+    goto label1
+label1:
+    0x9ABC
+```
+
+Ví dụ 3: Xử lý Chuỗi
+
+```plaintext
+str var "Hello, World!"
+str var
+str "Goodbye, World!"
+```
+
+Ghi chú bổ sung
+
+· Biểu diễn Phông chữ và Ký hiệu: Trình biên dịch sử dụng phông chữ tùy chỉnh và biểu diễn ký hiệu được định nghĩa trong các biến FONT và symbols.
+· Tối ưu hóa số lần nhấn phím: Trình biên dịch tối ưu hóa số lần nhấn phím cần thiết để nhập địa chỉ bằng cách sử dụng mảng npress.
+· Xử lý Lỗi: Trình biên dịch cung cấp các thông báo lỗi và cảnh báo chi tiết để giúp chẩn đoán sự cố trong quá trình biên dịch.
+
+Cấu trúc Mã nguồn
+
+compiler.py
+
+Thư viện import và Thiết lập Ban đầu
+
+· Imports: Tập lệnh import các mô-đun và hàm cần thiết từ libcompiler.
+· Đổi thư mục: Thay đổi thư mục làm việc đến vị trí của tập lệnh.
+· Thêm Đường dẫn: Thêm thư mục cha vào đường dẫn hệ thống.
+
+Tải ROM và Mã hợp ngữ đã dịch ngược
+
+· get_rom('rom.bin'): Tải tệp nhị phân ROM.
+· get_disassembly('disas.txt'): Tải tệp mã hợp ngữ đã dịch ngược.
+· get_commands('gadgets'): Tải các lệnh gadget.
+· read_rename_list('labels'): Đọc danh sách đổi tên.
+· read_rename_list('../labels_sfr'): Đọc một danh sách đổi tên khác.
+
+Thiết lập Phông chữ và Mảng Npress
+
+· FONT: Định nghĩa một mảng phông chữ từ một chuỗi nhiều dòng.
+· set_font(FONT): Thiết lập phông chữ sử dụng mảng đã định nghĩa.
+· npress: Định nghĩa mảng npress cho số lần nhấn phím.
+· set_npress_array(npress): Thiết lập mảng npress.
+
+Biểu diễn Ký hiệu
+
+· get_binary(filename): Đọc một tệp nhị phân và trả về nội dung của nó.
+· get_symbol: Import get_char_table và định nghĩa các ký hiệu sử dụng phông chữ.
+· set_symbolrepr(symbols[:]): Thiết lập biểu diễn ký hiệu.
+
+Phân tích Đối số
+
+· argparse.ArgumentParser(): Thiết lập phân tích đối số cho các tùy chọn dòng lệnh.
+· args: Phân tích các đối số dòng lệnh.
+
+Tối ưu hóa Gadget và In Địa chỉ
+
+· optimize_gadget: Tối ưu hóa một gadget dựa trên các đối số được cung cấp.
+· print_addresses: In các địa chỉ đã được tối ưu hóa.
+
+Xử lý Chương trình
+
+· process_program(args, program, overflow_initial_sp): Xử lý chương trình đầu vào dựa trên các đối số và con trỏ ngăn xếp ban đầu.
+
+get_char_table.py
+
+Thư viện import và Tải ROM
+
+· Imports: Import các mô-đun cần thiết.
+· LOOKUP: Định nghĩa một bảng tra cứu để chuyển đổi ký tự thành chuỗi.
+· ROMWINDOW: Thiết lập kích thước cửa sổ ROM.
+
+Lấy Ký tự
+
+· fetch(x): Lấy một giá trị 16-bit từ ROM.
+· f(x): Chuyển đổi một ký tự thành chuỗi sử dụng bảng tra cứu.
+
+Chức năng Chính
+
+· Khối lệnh chính: Lặp qua bảng tra cứu và in ra ký tự cùng với chuỗi đã chuyển đổi.
+
+libcompiler.py
+
+Thư viện import và Hằng số
+
+· Imports: Import các mô-đun và hàm cần thiết.
+· max_call_adr: Thiết lập địa chỉ gọi tối đa.
+
+Phông chữ và Biểu diễn Ký hiệu
+
+· set_font(font_): Thiết lập phông chữ và tạo một từ điển liên kết.
+· from_font(st): Chuyển đổi một chuỗi thành các chỉ số phông chữ.
+· to_font(charcodes): Chuyển đổi các chỉ số phông chữ thành một chuỗi.
+· set_npress_array(npress_): Thiết lập mảng npress.
+· set_symbolrepr(symbolrepr_): Thiết lập biểu diễn ký hiệu.
+
+Hàm về Phím và Địa chỉ
+
+· byte_to_key(byte): Chuyển đổi một byte thành biểu diễn phím.
+· get_npress(charcodes): Tính toán số lần nhấn phím cho một chuỗi các ký tự.
+· get_npress_adr(adrs): Tính toán số lần nhấn phím cho một chuỗi các địa chỉ.
+· optimize_adr_for_npress(adr): Tối ưu hóa một địa chỉ để giảm thiểu số lần nhấn phím.
+· optimize_sum_for_npress(total): Tối ưu hóa một tổng để giảm thiểu số lần nhấn phím.
+
+Hàm Tiện ích
+
+· note(st): In một ghi chú ra stderr.
+· to_lowercase(s): Chuyển đổi một chuỗi thành chữ thường.
+· canonicalize(st): Chuẩn hóa một chuỗi.
+· del_inline_comment(line): Loại bỏ các chú thích trong dòng.
+· add_command(command_dict, address, command, tags, debug_info=''): Thêm một lệnh vào từ điển lệnh.
+
+Xử lý Lệnh và Nhãn
+
+· get_commands(filename): Đọc một danh sách tên gadget từ một tệp.
+· get_disassembly(filename): Phân tích một tệp mã hợp ngữ đã dịch ngược.
+· read_rename_list(filename): Phân tích một danh sách đổi tên.
+· sizeof_register(reg_name): Trả về kích thước của một thanh ghi.
+
+Xử lý Chương trình
+
+· process(line): Xử lý một dòng đơn của chương trình.
+· finish_processing(): Kết thúc xử lý các lệnh bị hoãn.
+· process_program(args, program, overflow_initial_sp): Xử lý toàn bộ chương trình.
+
+Hàm về ROM và Địa chỉ
+
+· get_rom(x): Tải tệp nhị phân ROM.
+· find_equivalent_addresses(rom: bytes, q: set): Tìm các địa chỉ tương đương trong ROM.
+· optimize_gadget_f(rom: bytes, gadget: bytes): Tối ưu hóa một gadget trong ROM.
+· optimize_gadget(gadget: bytes): Tối ưu hóa một gadget.
+· print_addresses(adrs, n_preview: int): In các địa chỉ của các gadget đã được tối ưu hóa.
+
+Được viết bởi hieuxyz
