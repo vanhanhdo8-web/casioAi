@@ -167,7 +167,7 @@ def chat():
         try:
             # Tạo model với system instruction
             model = genai.GenerativeModel(
-                model_name='gemini-1.5-flash',  # Dùng flash cho nhanh và tiết kiệm
+                model_name='models/gemini-1.5-flash',  # Dùng flash cho nhanh và tiết kiệm
                 generation_config={
                     'temperature': 0.7,
                     'max_output_tokens': 800,
