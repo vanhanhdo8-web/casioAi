@@ -18,13 +18,18 @@ import hashlib
 import re
 
 # ===== LOAD BIẾN MÔI TRƯỜNG =====
-load_dotenv()
+# Chỉ load .env khi chạy local
+if os.path.exists('.env'):
+    load_dotenv()
+    print("📝 Đã load biến môi trường từ file .env (local mode)")
+else:
+    print("☁️ Chạy trên môi trường cloud (Render)")
 
 # ===== CẤU HÌNH GEMINI =====
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 if not GEMINI_API_KEY:
-    print("⚠️  CẢNH BÁO: Chưa có GEMINI_API_KEY trong file .env")
-    print("📝 Tạo file .env với nội dung: GEMINI_API_KEY=your-gemini-key-here")
+    print("⚠️  CẢNH BÁO: Chưa có GEMINI_API_KEY trong biến môi trường")
+    print("📝 Trên Render, thêm GEMINI_API_KEY vào Environment Variables")
     print("🔗 Lấy key tại: https://makersuite.google.com/app/apikey")
 else:
     print("✅ Đã tìm thấy Gemini API Key")
@@ -72,7 +77,7 @@ BLOCK_FILES = {"run.py", "app.py", "config.py", ".env"}
 BLOCK_DIRS = {".git", "__pycache__", "venv", "env"}
 
 app = Flask(__name__, template_folder=TEMPLATES_FOLDER)
-app.secret_key = os.getenv('SECRET_KEY', 'casio-tool-secret-key-2024')
+app.secret_key = os.environ.get('SECRET_KEY', 'casio-tool-secret-key-2024')
 
 # ===== CẤU HÌNH GEMINI MODEL =====
 generation_config = {
@@ -105,14 +110,63 @@ safety_settings = [
 model = None
 if GEMINI_API_KEY and GEMINI_API_KEY != 'your-gemini-key-here':
     try:
-        model = genai.GenerativeModel(
-            model_name="gemini-pro",
-            generation_config=generation_config,
-            safety_settings=safety_settings
-        )
-        print("✅ Đã khởi tạo Gemini model thành công")
+        print("🔄 Đang kết nối Gemini API...")
+        
+        # Cấu hình API
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        # Kiểm tra model có sẵn
+        available_models = []
+        for m in genai.list_models():
+            available_models.append(m.name)
+            print(f"📋 Model available: {m.name}")
+        
+        # Xác định model name phù hợp
+        model_name = None
+        preferred_models = [
+            'models/gemini-1.5-pro',
+            'models/gemini-1.0-pro',
+            'models/gemini-pro'
+        ]
+        
+        for pref_model in preferred_models:
+            if pref_model in available_models:
+                model_name = pref_model
+                break
+        
+        # Nếu không tìm thấy model ưu tiên, lấy model đầu tiên hỗ trợ generateContent
+        if not model_name:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    model_name = m.name
+                    break
+        
+        if model_name:
+            print(f"✅ Sử dụng model: {model_name}")
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                generation_config=generation_config,
+                safety_settings=safety_settings
+            )
+            
+            # Test thử model
+            test_response = model.generate_content("test")
+            print("✅ Model hoạt động tốt")
+        else:
+            print("❌ Không tìm thấy model phù hợp")
+            
     except Exception as e:
         print(f"⚠️ Lỗi khởi tạo Gemini model: {e}")
+        print("🔄 Thử cách khởi tạo đơn giản hơn...")
+        
+        try:
+            # Cách khởi tạo đơn giản hơn
+            model = genai.GenerativeModel('gemini-pro')
+            test_response = model.generate_content("test")
+            print("✅ Model hoạt động tốt với cách đơn giản")
+        except Exception as e2:
+            print(f"❌ Vẫn lỗi: {e2}")
+            model = None
 
 # ===== CẤU TRÚC WEBSITE CHO AI =====
 WEBSITE_STRUCTURE = {
@@ -346,8 +400,47 @@ def ai_health():
         'api_configured': bool(GEMINI_API_KEY and GEMINI_API_KEY != 'your-gemini-key-here' and model is not None),
         'cache_size': len(RESPONSE_CACHE),
         'active_sessions': len(chat_histories),
-        'model': 'Gemini Pro'
+        'model': str(model) if model else 'None'
     })
+
+# ===== DEBUG GEMINI =====
+@app.route('/debug-gemini', methods=['GET'])
+def debug_gemini():
+    """Debug thông tin Gemini trên Render"""
+    try:
+        info = {
+            'api_key_configured': bool(GEMINI_API_KEY),
+            'api_key_length': len(GEMINI_API_KEY) if GEMINI_API_KEY else 0,
+            'model_initialized': model is not None,
+            'environment': 'production' if not os.path.exists('.env') else 'development'
+        }
+        
+        # Thử liệt kê models
+        try:
+            models = []
+            for m in genai.list_models():
+                models.append({
+                    'name': m.name,
+                    'methods': list(m.supported_generation_methods)
+                })
+            info['available_models'] = models
+            info['model_count'] = len(models)
+        except Exception as e:
+            info['list_models_error'] = str(e)
+        
+        # Thử test generate
+        if model:
+            try:
+                test = model.generate_content("test", generation_config={"max_output_tokens": 10})
+                info['test_response'] = test.text[:50] + "..." if test.text else "empty"
+                info['test_success'] = True
+            except Exception as e:
+                info['test_error'] = str(e)
+                info['test_success'] = False
+        
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ===== API CHAT =====
 @app.route('/api/ai-chat', methods=['POST'])
@@ -372,10 +465,16 @@ def ai_chat():
         
         # Kiểm tra API key và model
         if not GEMINI_API_KEY or GEMINI_API_KEY == 'your-gemini-key-here':
-            return jsonify({'error': 'Gemini API key chưa được cấu hình. Vui lòng thêm vào file .env'}), 501
+            return jsonify({'error': 'Gemini API key chưa được cấu hình. Vui lòng thêm GEMINI_API_KEY vào biến môi trường trên Render'}), 501
         
         if model is None:
-            return jsonify({'error': 'Gemini model chưa được khởi tạo. Kiểm tra API key.'}), 501
+            # Thử khởi tạo lại model
+            try:
+                genai.configure(api_key=GEMINI_API_KEY)
+                global model
+                model = genai.GenerativeModel('gemini-pro')
+            except Exception as e:
+                return jsonify({'error': f'Gemini model chưa được khởi tạo. Lỗi: {str(e)}'}), 501
         
         # Phân tích intent
         intents = analyze_intent(message)
@@ -397,7 +496,7 @@ def ai_chat():
         # Tạo context từ lịch sử
         context = ""
         recent_history = chat_histories[session_id][-6:]
-        for msg in recent_history[:-1]:  # Bỏ qua tin nhắn cuối (tin nhắn hiện tại)
+        for msg in recent_history[:-1]:
             context += f"{msg['role']}: {msg['content']}\n"
         
         # Tạo prompt hoàn chỉnh
@@ -422,10 +521,34 @@ ASSISTANT:"""
                 'cached': True
             })
         
-        # Gọi Gemini API
-        response = model.generate_content(full_prompt)
-        
-        bot_reply = response.text
+        # Gọi Gemini API với timeout
+        try:
+            response = model.generate_content(
+                full_prompt,
+                generation_config={
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                    "top_k": 40,
+                    "max_output_tokens": 1024,
+                }
+            )
+            
+            bot_reply = response.text
+            
+        except Exception as api_error:
+            error_str = str(api_error)
+            print(f"❌ Lỗi Gemini API: {error_str}")
+            
+            if "not found" in error_str.lower():
+                # Thử với model name khác
+                try:
+                    alt_model = genai.GenerativeModel('gemini-1.0-pro')
+                    response = alt_model.generate_content(full_prompt)
+                    bot_reply = response.text
+                except:
+                    return jsonify({'error': f'Lỗi model: {error_str}'}), 500
+            else:
+                return jsonify({'error': f'Lỗi Gemini API: {error_str}'}), 500
         
         # Lưu vào cache
         RESPONSE_CACHE[cache_key] = {
@@ -456,75 +579,8 @@ ASSISTANT:"""
         
     except Exception as e:
         error_msg = str(e)
-        print(f"❌ Lỗi Gemini API: {error_msg}")
-        
-        if "API key" in error_msg.lower():
-            return jsonify({'error': 'Lỗi xác thực Gemini API. Kiểm tra API key'}), 401
-        elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
-            return jsonify({'error': 'Đã vượt quá giới hạn API Gemini. Thử lại sau'}), 429
-        else:
-            return jsonify({'error': f'Lỗi hệ thống: {error_msg}'}), 500
-
-# ===== API CHAT STREAM =====
-@app.route('/api/ai-chat-stream', methods=['POST'])
-def ai_chat_stream():
-    """Xử lý chat với Gemini AI (streaming)"""
-    try:
-        data = request.get_json()
-        message = data.get('message', '').strip()
-        session_id = data.get('session_id', str(uuid.uuid4()))
-        current_tool = data.get('current_tool', 'home')
-        
-        if not message:
-            return jsonify({'error': 'Tin nhắn trống'}), 400
-        
-        if model is None:
-            return jsonify({'error': 'Gemini model chưa được khởi tạo'}), 501
-        
-        system_prompt = get_system_prompt(current_tool)
-        full_prompt = f"{system_prompt}\n\nUSER: {message}\nASSISTANT:"
-        
-        def generate():
-            try:
-                response = model.generate_content(full_prompt, stream=True)
-                
-                full_response = ""
-                for chunk in response:
-                    if chunk.text:
-                        full_response += chunk.text
-                        yield f"data: {json.dumps({'content': chunk.text, 'done': False})}\n\n"
-                
-                # Lưu vào history
-                if session_id not in chat_histories:
-                    chat_histories[session_id] = []
-                
-                chat_histories[session_id].append({
-                    'role': 'user',
-                    'content': message,
-                    'time': time.time()
-                })
-                chat_histories[session_id].append({
-                    'role': 'assistant',
-                    'content': full_response,
-                    'time': time.time()
-                })
-                
-                yield f"data: {json.dumps({'done': True})}\n\n"
-                
-            except Exception as e:
-                yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
-        
-        return app.response_class(
-            generate(),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no'
-            }
-        )
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ Lỗi hệ thống: {error_msg}")
+        return jsonify({'error': f'Lỗi hệ thống: {error_msg}'}), 500
 
 # ===== API LỊCH SỬ CHAT =====
 @app.route('/api/chat-history/<session_id>', methods=['GET'])
@@ -751,8 +807,7 @@ if __name__ == "__main__":
     
     if not GEMINI_API_KEY or GEMINI_API_KEY == 'your-gemini-key-here':
         print("\n⚠️  CẢNH BÁO: Chưa có Gemini API key!")
-        print("📝 Tạo file .env với nội dung:")
-        print("   GEMINI_API_KEY=your-actual-gemini-key-here")
+        print("📝 Trên Render, thêm GEMINI_API_KEY vào Environment Variables")
         print("🔗 Lấy key tại: https://makersuite.google.com/app/apikey")
         print("💡 Chatbot sẽ hoạt động sau khi cấu hình API key\n")
     
