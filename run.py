@@ -446,6 +446,9 @@ def debug_gemini():
 @app.route('/api/ai-chat', methods=['POST'])
 def ai_chat():
     """Xử lý chat với Gemini AI"""
+    # Khai báo global model ở đầu hàm
+    global model
+    
     # Kiểm tra rate limit
     client_ip = request.remote_addr
     if not check_rate_limit(client_ip):
@@ -471,8 +474,8 @@ def ai_chat():
             # Thử khởi tạo lại model
             try:
                 genai.configure(api_key=GEMINI_API_KEY)
-                global model
                 model = genai.GenerativeModel('gemini-pro')
+                print("✅ Đã khởi tạo lại model thành công")
             except Exception as e:
                 return jsonify({'error': f'Gemini model chưa được khởi tạo. Lỗi: {str(e)}'}), 501
         
