@@ -20,6 +20,7 @@ import base64
 from PIL import Image
 import io
 from datetime import datetime
+from typing import List, Dict, Any, Optional
 
 # ===== CẤU HÌNH LOGGING =====
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,7 @@ if os.path.exists('.env'):
     print("📝 Đã load biến môi trường từ file .env (local mode)")
 else:
     print("☁️ Chạy trên môi trường cloud (Render)")
+    print("⚠️ Tạo file .env với nội dung: GEMINI_API_KEY=your_key_here")
 
 # ===== CẤU HÌNH GEMINI =====
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
@@ -44,19 +46,26 @@ else:
 PORT = int(os.environ.get('PORT', 7860))
 
 # ===== THƯ MỤC GỐC =====
-BASE_DIR = os.getcwd()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TMP_DIR = tempfile.gettempdir()
 
 # ===== THƯ MỤC LƯU TRỮ =====
-UPLOAD_FOLDER = os.path.join(TMP_DIR, 'uploads')
+UPLOAD_FOLDER = os.path.join(TMP_DIR, 'casio_uploads')
 TEMPLATES_FOLDER = os.path.join(BASE_DIR, 'templates')
-ASMAPP_BASE = os.path.join(BASE_DIR, 'asmapp')
 
 # Tạo thư mục cần thiết
 for folder in [UPLOAD_FOLDER, TEMPLATES_FOLDER]:
     if not os.path.exists(folder):
-        os.makedirs(folder)
+        os.makedirs(folder, exist_ok=True)
         print(f"📁 Đã tạo thư mục: {folder}")
+
+# ===== KIỂM TRA FILE TEMPLATE =====
+TEMPLATE_FILE = os.path.join(TEMPLATES_FOLDER, 'ai_chatbot.html')
+if not os.path.exists(TEMPLATE_FILE):
+    print(f"❌ KHÔNG TÌM THẤY FILE TEMPLATE: {TEMPLATE_FILE}")
+    print("📝 Tạo file templates/ai_chatbot.html với nội dung HTML đã cung cấp")
+else:
+    print(f"✅ Đã tìm thấy template: {TEMPLATE_FILE}")
 
 # ===== BLACKLIST =====
 BLOCK_EXT = {".py", ".sh", ".php", ".asp", ".exe", ".dll", ".so"}
@@ -85,15 +94,24 @@ if GEMINI_API_KEY and GEMINI_API_KEY != 'your-gemini-key-here':
         print("🔄 Đang kết nối Gemini API...")
         genai.configure(api_key=GEMINI_API_KEY)
         
-        model_names = ['gemini-1.5-pro', 'gemini-1.0-pro', 'gemini-pro']
+        # Thử các model name khác nhau
+        model_names = [
+            'models/gemini-1.5-pro',
+            'models/gemini-1.0-pro',
+            'gemini-1.5-pro',
+            'gemini-1.0-pro',
+            'gemini-pro'
+        ]
         
         for model_name in model_names:
             try:
                 model = genai.GenerativeModel(model_name)
+                # Test nhẹ
                 test = model.generate_content("test", generation_config={"max_output_tokens": 5})
                 print(f"✅ Đã kết nối thành công với model: {model_name}")
                 break
-            except:
+            except Exception as e:
+                print(f"⚠️ Thử model {model_name} thất bại: {e}")
                 continue
         else:
             print("❌ Không thể kết nối với bất kỳ model nào")
@@ -102,6 +120,8 @@ if GEMINI_API_KEY and GEMINI_API_KEY != 'your-gemini-key-here':
     except Exception as e:
         print(f"⚠️ Lỗi khởi tạo Gemini: {e}")
         model = None
+else:
+    print("ℹ️ Chạy ở chế độ offline (không có Gemini API)")
 
 # ===== LƯU TRỮ CHAT HISTORY =====
 chat_histories = {}
@@ -116,6 +136,7 @@ RATE_LIMIT_MAX = 30
 def check_rate_limit(ip):
     current_time = time.time()
     
+    # Xóa các IP hết hạn
     for client_ip in list(RATE_LIMIT.keys()):
         if current_time - RATE_LIMIT[client_ip]['timestamp'] > RATE_LIMIT_DURATION:
             del RATE_LIMIT[client_ip]
@@ -130,13 +151,6 @@ def check_rate_limit(ip):
             'timestamp': current_time
         }
     return True
-
-def get_cache_key(messages, tool_context):
-    content = json.dumps({
-        'messages': messages[-3:],
-        'tool': tool_context
-    }, sort_keys=True)
-    return hashlib.md5(content.encode()).hexdigest()
 
 # ===== HÀM PHÂN TÍCH FILE HEX =====
 def analyze_hex_file(file_path):
@@ -428,8 +442,9 @@ def analyze_python_file(file_path):
 
 # ===== HÀM XỬ LÝ FILE TỔNG HỢP =====
 def process_file(file_path, file_ext, tool_name, message):
-    message_lower = message.lower()
+    message_lower = message.lower() if message else ""
     
+    # Xác định tool dựa trên nhiều yếu tố
     if tool_name == 'hex' or 'hex' in message_lower or file_ext == '.hex':
         result = analyze_hex_file(file_path)
         return {
@@ -465,6 +480,7 @@ def process_file(file_path, file_ext, tool_name, message):
             'summary': f"📝 Spell: {result.get('stats', {}).get('total_words', 0)} từ"
         }
     
+    # Xử lý theo loại file
     if file_ext == '.txt':
         result = analyze_text_file(file_path)
         return {
@@ -527,6 +543,7 @@ def ai_chat_with_file():
             if file_ext not in allowed_ext:
                 return jsonify({'error': f'Không hỗ trợ file {file_ext}. Chỉ hỗ trợ: {", ".join(allowed_ext)}'}), 400
             
+            # Tạo tên file an toàn
             safe_filename = f"{uuid.uuid4().hex}_{filename}"
             file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
             file.save(file_path)
@@ -534,12 +551,14 @@ def ai_chat_with_file():
             file_info = {
                 'name': filename,
                 'size': os.path.getsize(file_path),
-                'type': file_ext,
+                'type': file_ext[1:],  # Bỏ dấu chấm
                 'saved_as': safe_filename
             }
             
+            # Xử lý file với tool
             tool_result = process_file(file_path, file_ext, current_tool, message)
             
+            # Tạo preview cho ảnh
             if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
                 try:
                     img = Image.open(file_path)
@@ -547,49 +566,54 @@ def ai_chat_with_file():
                     buffered = io.BytesIO()
                     img.save(buffered, format="PNG")
                     file_info['preview'] = f"data:image/png;base64,{base64.b64encode(buffered.getvalue()).decode()}"
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Không thể tạo preview: {e}")
         
-        if not GEMINI_API_KEY or GEMINI_API_KEY == 'your-gemini-key-here':
+        # Nếu không có API key hoặc model, trả về kết quả xử lý file
+        if not GEMINI_API_KEY or GEMINI_API_KEY == 'your-gemini-key-here' or model is None:
             if tool_result:
                 reply = f"""**ĐÃ XỬ LÝ FILE THÀNH CÔNG:**
 
 {tool_result['summary']}
 
 ```json
-{json.dumps(tool_result['result'], ensure_ascii=False, indent=2)}
+{json.dumps(tool_result['result'], ensure_ascii=False, indent=2)[:1000]}
 ```"""
             else:
-                reply = "✅ Đã nhận tin nhắn của bạn."
+                reply = "✅ Đã nhận tin nhắn của bạn. (Đang chạy ở chế độ offline)"
             
+            # Xóa file tạm
             if file_path and os.path.exists(file_path):
-                os.remove(file_path)
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
             
             return jsonify({
                 'reply': reply,
                 'session_id': session_id,
                 'cached': False,
                 'file_info': file_info,
-                'tool_result': tool_result
+                'tool_result': tool_result,
+                'suggestions': ['Hướng dẫn ASM', 'Phân tích HEX', 'Chuyển ảnh pixel', 'Kiểm tra chính tả']
             })
         
-        if model is None:
-            return jsonify({'error': 'Gemini model chưa được khởi tạo'}), 501
-        
-        if session_id not in chat_histories:
-            chat_histories[session_id] = []
-        
-        user_msg = message
-        if file_info:
-            user_msg += f"\n[Đã gửi: {file_info['name']} ({file_info['size']} bytes)]"
-        
-        chat_histories[session_id].append({
-            'role': 'user',
-            'content': user_msg,
-            'time': time.time()
-        })
-        
-        system_prompt = """Bạn là trợ lý AI của Casio Tool - công cụ lập trình cho CASIO fx-580VN X và fx-880BTG.
+        # Xử lý với Gemini AI
+        try:
+            if session_id not in chat_histories:
+                chat_histories[session_id] = []
+            
+            user_msg = message
+            if file_info:
+                user_msg += f"\n[Đã gửi: {file_info['name']} ({file_info['size']} bytes)]"
+            
+            chat_histories[session_id].append({
+                'role': 'user',
+                'content': user_msg,
+                'time': time.time()
+            })
+            
+            system_prompt = """Bạn là trợ lý AI của Casio Tool - công cụ lập trình cho CASIO fx-580VN X và fx-880BTG.
 
 Bạn chuyên về:
 - Phân tích file HEX, ASM
@@ -600,17 +624,17 @@ Bạn chuyên về:
 
 Hãy trả lời bằng TIẾNG VIỆT, thân thiện và dễ hiểu. Nếu có lỗi, hãy đề xuất cách sửa."""
 
-        context = ""
-        recent = chat_histories[session_id][-5:]
-        for msg in recent[:-1]:
-            context += f"{msg['role']}: {msg['content']}\n"
-        
-        if tool_result:
-            result_str = json.dumps(tool_result['result'], ensure_ascii=False, indent=2)
-            if len(result_str) > 2000:
-                result_str = result_str[:2000] + "...\n(Kết quả bị cắt do quá dài)"
+            context = ""
+            recent = chat_histories[session_id][-5:]
+            for msg in recent[:-1]:
+                context += f"{msg['role']}: {msg['content']}\n"
             
-            full_prompt = f"""{system_prompt}
+            if tool_result:
+                result_str = json.dumps(tool_result['result'], ensure_ascii=False, indent=2)
+                if len(result_str) > 1500:
+                    result_str = result_str[:1500] + "...\n(Kết quả bị cắt do quá dài)"
+                
+                full_prompt = f"""{system_prompt}
 
 LỊCH SỬ CHAT:
 {context}
@@ -623,86 +647,124 @@ KẾT QUẢ XỬ LÝ BẰNG CÔNG CỤ {tool_result['tool']}:
 ```json
 {result_str}
 ```"""
-        else:
-            full_prompt = f"""{system_prompt}
+            else:
+                full_prompt = f"""{system_prompt}
 
 LỊCH SỬ CHAT:
 {context}
 
 USER: {message}"""
-        
-        cache_key = hashlib.md5(full_prompt.encode()).hexdigest()
-        if cache_key in RESPONSE_CACHE:
-            if time.time() - RESPONSE_CACHE[cache_key]['time'] < CACHE_DURATION:
-                reply = RESPONSE_CACHE[cache_key]['reply']
-                
-                if file_path and os.path.exists(file_path):
-                    os.remove(file_path)
-                
-                return jsonify({
-                    'reply': reply,
-                    'session_id': session_id,
-                    'cached': True,
-                    'file_info': file_info,
-                    'tool_result': tool_result
-                })
-        
-        try:
-            response = model.generate_content(
-                full_prompt,
-                generation_config={
-                    "temperature": 0.7,
-                    "max_output_tokens": 1024,
-                }
-            )
-            reply = response.text
             
-            RESPONSE_CACHE[cache_key] = {
-                'reply': reply,
+            # Kiểm tra cache
+            cache_key = hashlib.md5(full_prompt.encode()).hexdigest()
+            if cache_key in RESPONSE_CACHE:
+                if time.time() - RESPONSE_CACHE[cache_key]['time'] < CACHE_DURATION:
+                    reply = RESPONSE_CACHE[cache_key]['reply']
+                    
+                    # Xóa file tạm
+                    if file_path and os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except:
+                            pass
+                    
+                    return jsonify({
+                        'reply': reply,
+                        'session_id': session_id,
+                        'cached': True,
+                        'file_info': file_info,
+                        'tool_result': tool_result,
+                        'suggestions': ['Phân tích HEX', 'Biên dịch ASM', 'Chuyển ảnh pixel', 'Kiểm tra chính tả']
+                    })
+            
+            # Gọi Gemini API
+            try:
+                response = model.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": 0.7,
+                        "max_output_tokens": 1024,
+                    }
+                )
+                reply = response.text
+                
+                # Lưu cache
+                RESPONSE_CACHE[cache_key] = {
+                    'reply': reply,
+                    'time': time.time()
+                }
+                
+            except Exception as e:
+                reply = f"Xin lỗi, có lỗi khi gọi AI: {str(e)}. Tôi vẫn có thể xử lý file cho bạn!"
+            
+            # Lưu lịch sử
+            chat_histories[session_id].append({
+                'role': 'assistant',
+                'content': reply,
                 'time': time.time()
-            }
+            })
+            
+            # Giới hạn lịch sử
+            if len(chat_histories[session_id]) > 50:
+                chat_histories[session_id] = chat_histories[session_id][-50:]
+            
+            # Xóa file tạm
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
+            
+            # Tạo suggestions dựa trên tool
+            suggestions = []
+            if tool_result:
+                if 'hex' in tool_result['tool']:
+                    suggestions = ['Phân tích HEX khác', 'Hướng dẫn sửa HEX', 'Chuyển sang ASM', 'Cấu trúc file HEX']
+                elif 'asm' in tool_result['tool']:
+                    suggestions = ['Biên dịch cho model khác', 'Tối ưu code', 'Debug ASM', 'Hướng dẫn ASM']
+                elif 'pixel' in tool_result['tool']:
+                    suggestions = ['Chuyển ảnh khác', 'Điều chỉnh màu sắc', 'Xuất pixel art', 'Tạo sprite']
+                elif 'spell' in tool_result['tool']:
+                    suggestions = ['Kiểm tra file khác', 'Sửa lỗi chính tả', 'Gợi ý từ', 'Kiểm tra văn bản']
+                else:
+                    suggestions = ['Phân tích HEX', 'Biên dịch ASM', 'Chuyển ảnh pixel', 'Kiểm tra chính tả']
+            else:
+                suggestions = ['Hướng dẫn ASM', 'Phân tích HEX', 'Chuyển ảnh pixel', 'Kiểm tra chính tả']
+            
+            return jsonify({
+                'reply': reply,
+                'suggestions': suggestions[:5],
+                'session_id': session_id,
+                'cached': False,
+                'file_info': file_info,
+                'tool_result': tool_result
+            })
             
         except Exception as e:
-            reply = f"Xin lỗi, có lỗi khi gọi AI: {str(e)}"
-        
-        chat_histories[session_id].append({
-            'role': 'assistant',
-            'content': reply,
-            'time': time.time()
-        })
-        
-        if len(chat_histories[session_id]) > 50:
-            chat_histories[session_id] = chat_histories[session_id][-50:]
-        
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
-        
-        suggestions = []
-        if tool_result:
-            if 'hex' in tool_result['tool']:
-                suggestions = ['Phân tích HEX khác', 'Hướng dẫn sửa HEX', 'Chuyển sang ASM']
-            elif 'asm' in tool_result['tool']:
-                suggestions = ['Biên dịch cho model khác', 'Tối ưu code', 'Debug ASM']
-            elif 'pixel' in tool_result['tool']:
-                suggestions = ['Chuyển ảnh khác', 'Điều chỉnh màu sắc', 'Xuất pixel art']
-            elif 'spell' in tool_result['tool']:
-                suggestions = ['Kiểm tra file khác', 'Sửa lỗi chính tả', 'Gợi ý từ']
+            logger.error(f"Lỗi xử lý AI: {str(e)}")
+            # Fallback: trả về kết quả xử lý file
+            if tool_result:
+                reply = f"""**ĐÃ XỬ LÝ FILE THÀNH CÔNG:**
+
+{tool_result['summary']}
+
+```json
+{json.dumps(tool_result['result'], ensure_ascii=False, indent=2)[:1000]}
+```"""
             else:
-                suggestions = ['Phân tích HEX', 'Biên dịch ASM', 'Chuyển ảnh pixel']
-        else:
-            suggestions = ['Hướng dẫn ASM', 'Phân tích HEX', 'Chuyển ảnh pixel']
-        
-        return jsonify({
-            'reply': reply,
-            'suggestions': suggestions[:5],
-            'session_id': session_id,
-            'cached': False,
-            'file_info': file_info,
-            'tool_result': tool_result
-        })
+                reply = f"✅ Đã nhận tin nhắn. (Lỗi AI: {str(e)})"
+            
+            return jsonify({
+                'reply': reply,
+                'session_id': session_id,
+                'cached': False,
+                'file_info': file_info,
+                'tool_result': tool_result,
+                'suggestions': ['Hướng dẫn ASM', 'Phân tích HEX', 'Chuyển ảnh pixel', 'Kiểm tra chính tả']
+            })
         
     except Exception as e:
-        logger.error(f"Lỗi: {str(e)}")
+        logger.error(f"Lỗi hệ thống: {str(e)}")
         return jsonify({'error': f'Lỗi hệ thống: {str(e)}'}), 500
 
 # ===== API KIỂM TRA SỨC KHỎE =====
@@ -713,7 +775,8 @@ def ai_health():
         'api_configured': model is not None,
         'cache_size': len(RESPONSE_CACHE),
         'active_sessions': len(chat_histories),
-        'supported_files': ['.txt', '.hex', '.asm', '.py', '.json', '.csv', '.jpg', '.jpeg', '.png', '.gif']
+        'supported_files': ['.txt', '.hex', '.asm', '.py', '.json', '.csv', '.jpg', '.jpeg', '.png', '.gif'],
+        'template_exists': os.path.exists(TEMPLATE_FILE)
     })
 
 # ===== API LỊCH SỬ =====
@@ -740,18 +803,40 @@ def clear_cache():
 def debug():
     return jsonify({
         'gemini_api': bool(GEMINI_API_KEY),
-        'model': str(model),
+        'model': str(model) if model else None,
         'upload_folder': UPLOAD_FOLDER,
         'templates': TEMPLATES_FOLDER,
-        'python_version': sys.version
+        'template_file': TEMPLATE_FILE,
+        'template_exists': os.path.exists(TEMPLATE_FILE),
+        'python_version': sys.version,
+        'cwd': BASE_DIR
     })
+
+# ===== FAVICON =====
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
 
 # ===== TRANG CHATBOT =====
 @app.route('/ai-chatbot')
 def ai_chatbot_page():
-    template_path = os.path.join(TEMPLATES_FOLDER, 'ai_chatbot.html')
-    if not os.path.exists(template_path):
-        return f"❌ Không tìm thấy file template tại: {template_path}", 404
+    if not os.path.exists(TEMPLATE_FILE):
+        return f"""
+        <html>
+        <head><title>Lỗi</title></head>
+        <body style="font-family: sans-serif; padding: 20px;">
+            <h1>❌ Không tìm thấy file template</h1>
+            <p>Đường dẫn: <code>{TEMPLATE_FILE}</code></p>
+            <p>Vui lòng tạo file <code>templates/ai_chatbot.html</code> với nội dung HTML đã cung cấp.</p>
+            <hr>
+            <h3>Thông tin debug:</h3>
+            <pre>BASE_DIR: {BASE_DIR}
+TEMPLATES_FOLDER: {TEMPLATES_FOLDER}
+TEMPLATE_FILE: {TEMPLATE_FILE}
+Tồn tại: {os.path.exists(TEMPLATE_FILE)}</pre>
+        </body>
+        </html>
+        """, 404
     return render_template('ai_chatbot.html')
 
 # ===== TRANG CHỦ =====
@@ -759,7 +844,7 @@ def ai_chatbot_page():
 def home():
     return redirect('/ai-chatbot')
 
-# ===== CÁC ROUTE KHÁC =====
+# ===== UPLOAD FILE =====
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -792,7 +877,10 @@ def internal_error(e):
 # ===== MỞ TRÌNH DUYỆT =====
 def open_browser():
     time.sleep(1.5)
-    webbrowser.open(f'http://localhost:{PORT}/ai-chatbot')
+    try:
+        webbrowser.open(f'http://localhost:{PORT}/ai-chatbot')
+    except:
+        pass
 
 # ===== MAIN =====
 if __name__ == '__main__':
@@ -802,8 +890,10 @@ if __name__ == '__main__':
     print(f"📌 Địa chỉ: http://localhost:{PORT}")
     print(f"🤖 Chatbot: http://localhost:{PORT}/ai-chatbot")
     print(f"🔑 Gemini API: {'✅ Có' if model else '❌ Chưa cấu hình'}")
+    print(f"📁 Thư mục gốc: {BASE_DIR}")
     print(f"📁 Templates: {TEMPLATES_FOLDER}")
-    print(f"📦 Upload: {UPLOAD_FOLDER}")
+    print(f"📁 Upload: {UPLOAD_FOLDER}")
+    print(f"📄 Template file: {'✅ Tồn tại' if os.path.exists(TEMPLATE_FILE) else '❌ Không tìm thấy'}")
     print("="*70)
     print("\n📂 HỖ TRỢ CÁC LOẠI FILE:")
     print("  ✅ .hex - Phân tích HEX")
@@ -821,5 +911,11 @@ if __name__ == '__main__':
         print("🔗 Lấy key tại: https://makersuite.google.com/app/apikey")
         print("💡 Chatbot vẫn hoạt động với chức năng xử lý file!\n")
     
-    threading.Thread(target=open_browser, daemon=True).start()
+    # Mở trình duyệt
+    try:
+        threading.Thread(target=open_browser, daemon=True).start()
+    except:
+        pass
+    
+    # Chạy app
     app.run(host='0.0.0.0', port=PORT, debug=True, threaded=True)
