@@ -1,4 +1,5 @@
 flask==2.3.3
+pillow==10.1.0
 colorama==0.4.6
 google-generativeai==0.3.0
 python-dotenv==1.0.0
