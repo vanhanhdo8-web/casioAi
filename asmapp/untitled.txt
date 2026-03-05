@@ -1,0 +1,1394 @@
+# Hướng dẫn ROP cho newbie 
+  Được tổng hợp từ nhiều nguồn trên discord
+  
+thanh ghi, registers có 4 loại
+R/ER/XR/QR
+R = 1 byte (+ 1 byte pad)
+ER = 2 bytes
+XR = 4 bytes
+QR = 8 bytes
+
+2 cái khiến chúng bay lú:
+### cách sắp xếp thứ tự
+và
+### cách đặt tên(số sau R/ER,..)
+
+sắp xếp thứ tự:
+nó là đảo ngược lại
+ER = R, R
+XR = ER, ER
+QR = XR, XR
+ví dụ:
+ER4 = R5, R4
+XR8 = ER10, ER8
+QR0 = XR4, XR0
+
+đặt số thì nó là vế bên phải sang thôi
+```
+ER8 = R10, R8
+  ^         ^
+```
+
+## ASM
+source: các registers
+value: dữ liệu hex hoặc registers
+||syntax python||
+
+ADD source, value
+=> source += value
+SUB source, value
+=> source -= value
+MOV source, value
+=> source = value
+3 cái cơ bản nhất
+
+
+### Đọc, ghi vào ram
+ram là VỊ TRÍ của ram (thường là er, cx có thể là số hex)
+
+ST source, [ram]
+=> [ram] = source
+
+L source, [ram]
+=> source = [ram]
+
+
+### B, BL
+function ở đây là các f_?????, đại loại vậy
+
+B function
+=> nhảy đến vị trí function, KHÔNG quay lại VỊ TRÍ GỌI (B) khi gặp pop pc hay rt
+
+BL function
+=> nhảy đến vị trí function, quay lại VỊ TRÍ GỌI (BL) khi gặp pop pc hay rt
+
+### 3 lệnh đặc biệt
+
+POP source
+=> lấy dữ liệu sau SP
+
+POP PC
+=> quay lại program
+
+RT
+=> quay lại program
+
+||Đọc ko hiểu thì thôi, đập máy mà đầu tư vào hdpe||
+
+
+# Cách đọc disas
+```
+1:2602H    F01E            POP ER0
+1:2604H    F28E            POP PC
+```
+## Basics
+```
+Address    Opcode          ASM
+```
+chủ yếu xem ``Address`` với ``ASM``
+Nó sẽ chạy từ trên xuống và chạy lệnh ASM
+
+## Address
+Address là vị trí code, program sẽ dùng nó để nhảy đến trực tiếp đoạn ASM muốn chạy
+
+### Dịch address ra code program
+```
+Z:YYXXH
+=
+XX YY ?Z ??
+
+? là bất kì ký tự hex nào (thường là 3 hoặc 0)
+```
+ví dụ:
+```
+1:2602H    F01E            POP ER0
+1:2604H    F28E            POP PC
+=>
+02 26 31 30
+```
+(có thể dịch ngược)
+
+
+## Cách tìm code trong disas
+Hãy dùng regex(biểu thức chính quy) find
+``<asm muốn tìm>.*\n.*<asm dòng sau đó>``
+ví dụ:
+``POP ER0.*\n.*POP PC``
+sẽ ra cái disas ở đầu
+______________________________________________
+# MỘT SỐ GADGET POP CẦN BIẾT
+```
+17B34 (34 7B 31 30): POP XR0
+17BDA (DA 7B 31 30): POP QR0
+12602 (02 26 31 30): POP ER0
+18974 (74 89 31 30): POP ER2
+250A6 (A6 50 32 30): POP ER4
+0A6A8 (A6 A8 30 30): POP ER8
+12DA8 (A8 2D 31 30): POP QR8
+10D40 (40 0D 31 40): POP XR4
+183A6 (A6 83 31 30): POP XR4
+0D516 (16 D5 30 30): POP ER10
+21636 (36 16 32 30): POP ER12
+15C78 (78 5C 31 30): POP ER14
+13AB0 (B0 3A 31 30): POP ER6
+```
+______________________________________________
+# MỘT SỐ GADGET CƠ BẢN
+```
+23DCC (CC 3D 32 30) - line_print_col_0: Font ở r0, line pos ở r1, địa chỉ chữ ở er2. line pos là vị trí của chữ trên màn hình, từ 01 đến 32
+
+23DC8 (C8 3D 32 30) - line_print_col_0_font_0E: 1 byte bất kỳ ở r0, line pos ở r1, địa chỉ chữ ở er2
+
+0947E (7E 94 30 30) - render.ddd4: Cập nhật màn hình lên DDD4 (Screen buffer), thường ở sau các line_print (Như 2 cái trên), không yêu cầu register.
+
+09FA8 (A8 9F 30 30)- setlr: Giúp program ổn định khi gặp gadget dạng trên, không yêu cầu register.
+
+08C60 (60 8C 30 30) - buffer_clear: Clear màn hình (vùng DDD4), thường phải có setlr ở trước hoặc render ở sau để tránh crash.
+
+0A0E0 (E0 A0 30 30) - setsfr: Tránh trắng màn hình khi nhập launcher non-an
+```
+______________________________________________
+Một số gadget trên 580
+17B34 (34 7B 31 30): POP XR0
+17BDA (DA 7B 31 30): POP QR0
+12602 (02 26 31 30): POP ER0
+18974 (74 89 31 30): POP ER2
+250A6 (A6 50 32 30): POP ER4
+0A6A8 (A6 A8 30 30): POP ER8
+12DA8 (A8 2D 31 30): POP QR8
+10D40 (40 0D 31 40): POP XR4
+183A6 (A6 83 31 30): POP XR4
+0D516 (16 D5 30 30): POP ER10
+21636 (36 16 32 30): POP ER12
+15C78 (78 5C 31 30): POP ER14
+13AB0 (B0 3A 31 30): POP ER6
+
+23DCC (CC 3D 32 30) - line_print_col_0: Font ở r0, line pos ở r1, địa chỉ chữ ở er2
+23DC8 (C8 3D 32 30) - line_print_col_0_font_0E: 1 byte bất kỳ ở r0, line pos ở r1, địa chỉ chữ ở er2
+0947E (7E 94 30 30) - render.ddd4: Cập nhật màn hình lên DDD4 (Screen buffer), thường ở sau các line_print (Như 2 cái trên), không yêu cầu register.
+09FA8 (A8 9F 30 30)- setlr: Giúp program ổn định khi gặp gadget dạng trên, không yêu cầu register.
+08C60 (60 8C 30 30) - clear_screen: Clear màn hình (vùng DDD4), thường phải có setlr ở trước hoặc render ở sau để tránh crash.
+______________________________________________
+# Các vùng địa chỉ ||CWI only||
+## Vùng 1: `E9D4` → `EDCF`
+- Thường thì đa số Program đặt điểm bắt đầu inject là `E9E0`
+**Đặc điểm:**
+  ︎-︎ Đây là vùng có thể được coi là an toàn
+  ︎-︎ Là nơi mặc định thường chứa hầu hết các Program dài/ngắn khác nhau, chủ yếu là Backup Program (có thể bao gồm cả Launcher, Seed, v.v… nếu độ dài chưa chạm đến ngưỡng an toàn)
+**Lưu ý:**
+  ︎-︎ Vùng này sẽ không còn an toàn nữa nếu:
+    1/ Tháo lắp pin (đương nhiên rồi :v)
+    2/ Chạy các dạng ma trận (bao gồm softbrick và hardbrick)
+    3/ Sử dụng các kí tự có thể stack được trong chế độ MathI/O (thường là các kí tự có chứa `(` hoặc `□`)
+       VD: `(` ; `sin(` ; `√(` trong MathI/O ; v.v…
+    4/ Một số phép tính ra kết quả dài (thường gặp ở phép chia), thường dễ bị ảnh hưởng đối với một số Program có độ dài (gần) chạm đến ngưỡng an toàn
+       VD: 3.1415926536…, v.v…
+    5/ Chuyển đổi dạng kết quả bằng nút [S⇔D] sau khi tính
+       VD: 1.₍3₎ (a.k.a 1.333333333…), 1⌟3, v.v…
+
+## Vùng 2: D5F8 → DBCF
+**Đặc điểm:**
+  ︎-︎ Một vùng 'rộng lớn' mà có thể được coi là ổn định
+  ︎-︎ Các Program dùng để chạy (copy từ Backup Program qua) thường sẽ được đặt ở đây
+  ︎-︎ Có thể được dùng cho việc inject văn bản dài/ngắn khác nhau (miễn là độ dài văn bản **không được chạm** tới vùng `memory_integrity`(DBD0) dẫn đến máy tính bị Factory Reset → Clear vùng này)
+**Lưu ý:**
+  ︎-︎ Vùng này sẽ không còn an toàn nữa nếu:
+    × 1/ ; 2/
+    × Chuyển mode bất kỳ bằng nút [MENU]
+    × Reset bằng [Shift];[9], hoặc bị Factory Reset.
+
+## Vùng 3: DBE8 → DDCF
+**• Đặc điểm:**
+  ︎-︎ Một vùng khá rộng và có thể được coi là ổn định
+  ︎-︎ Một lựa chọn cho các Program ngắn có thể inject trực tiếp (chẳng hạn như: Quickcpy/++/Max/Max Fix/…)
+**Lưu ý:**
+  ︎-︎ Vùng này sẽ không còn an toàn nữa nếu:
+    × 1/ ; 2/ ; 3/
+
+## Vùng 4: E3D4 → E9D3
+**Đặc điểm:** Lựa chọn có thể thay thế cho Vùng 2
+**• Lưu ý:** Vùng này thật sự __không an toàn__
+______________________________________________
+
+ Một số asm mẫu 
+
+
+# HOW TO USE LINE_DRAW
+```
+org 0xd730
+
+  setlr
+  setsfr
+  buffer_clear
+
+  pop xr0
+  hex 00 00 00 00
+  BL line_draw
+  render.ddd4
+
+loop:
+  xr0 = hex 30 d6 84 d1
+  BL strcpy
+  er14 = 0xd62e
+  sp = er14,pop er14
+```
+**Note:**
+xr0 = startx starty,endx endy
+BL line_draw
+start x: từ bên trái thu gọn thanh (pixel ngang)
+start y: từ bên trái thu gọn thanh
+(pixel dọc)
+end x: từ bên phải thu gọn thanh
+(pixel ngang)
+end y: từ bên phải thu gọn thanh
+(pixel dọc )
+
+Đây là cách hoạt động line draw
+
+```org 0xe9e0
+
+setlr
+setsfr
+buffer_clear
+di,rt
+
+draw:
+# hex x_start y_start x_end y_end -> 0x<y_end><x_end><y_start><x_start>
+xr0 = hex 00 00 31 32
+line_draw
+render.ddd4```
+Ko có 30 30 33 30 Là nó đơ đấy =))
+Thay vì loop thì mình 30 30 33 30
+có thể thử cái này
+cứ bỏ setlr setsfr với buffer_clear lên đầu thôi nó làm gì thì kệ nó :))))
+launcher:
+FD24 30 30 DA 7B 31 30 FE 01 E0 E9 30 D7 2E D7 32 89 31 30 30 30 74 1F 32 48
+______________________________________________
+# EA SWITCH
+```er0 = adr_of key
+getscancode_nodelay
+pop xr12 (adr table adr table)
+setlr
+call 17CA6
+pop er0
+key:
+hex 00 00
+call 09C20
+call 1C64A
+sp = er6, pop er8
+
+key_1_func:
+[Chức năng key_1,nhớ set sp như CMP_BEQ]
+key_2_func:
+[Chức năng key_2]
+...
+
+[Loop here]
+table:
+hex 00 00 00 00 00 00 00 00 00 00
+Keycode key_1 (xem ở D150)
+adr_of  [-2] key_1_func
+Keycode key_2
+adr_of [-2] key_2_func
+hex 00 00
+adr_of [-2] loop```
+Ea switch giúp cho prog mượt hơn mà ko cần sunsilk
+______________________________________________
+HƯỚNG DẪN SỬ DỤNG GETSCANCODE
+I. Cấu trúc chuẩn cho từng phím
+Mỗi phím nên được tổ chức theo một block riêng:
+_Skey_n:
+1. Khởi tạo đọc phím
+er0 = 0xd730
+getscancode
+setlr
+0xd730: vùng xử lý phím.
+getscancode: đọc mã phím.
+setlr: chuẩn bị return.
+2. Thiết lập địa chỉ so sánh (CMP)
+er2 = 0xd730
+Lưu ý:
+Đây là địa chỉ nhảy CMP.
+Có thể đặt đầu chương trình.
+Không đặt trong program hoặc backup.
+3. Đọc scancode
+er0 = [er2], r2 = 9, rt
+Gán giá trị phím cần so:
+er2 = 0x0101
+0x0101 ví dụ là nút “1”.
+Keycode tra trong vùng D150.
+4. So sánh
+er0 - er2
+eqr0 = 1
+rt
+Nếu bằng → tiếp tục xử lý.
+5. Chuẩn bị nhảy sang block phím tiếp theo
+0x3032ac30
+er4 = adr_of [-2] _Skey_n + 1
+Lấy địa chỉ block tiếp theo.
+[-2] đảm bảo offset chính xác.
+6. Độ dài block setup
+er2 = 0x0038
+Thông thường luôn là 0x38.
+Nếu là other_key (phím không setup riêng) → dùng 0x0a.
+7. Cộng offset
+er0 += er2
+er2 = er0
+er0 += er4
+rt
+8. Reset stack
+er14 = er0
+pop xr0
+0x30303030
+
+sp = er14
+pop er14
+
+# Cách tối ưu program nhờ `getscancode`&`getscancode_nodelay` trong CASIO fx-580VN X (ROP - ASM)
+## I. Cấu trúc:
+```x86asm
+org ...
+refresh_screen:
+   ...
+print_text:
+   ...
+setup_key:
+    ... # getscancode or getscancode_nodelay
+key:
+   ...
+func:
+   ...
+[...]
+loop:
+   ...
+```
+- Cấu trúc của một program text dùng key đơn giản.
+## II. Chức năng:
+### 1. getscancode
+- Chức năng: **chờ** key.
+  * Chi tiết xem trong ***disas*** hoặc ***labels***.
+### 2. getscancode_nodelay
+- Chức năng: **không** chờ key.
+  * Chi tiết xem trong ***disas*** hoặc ***labels***.
+## III. Tối ưu:
+```x86asm
+refresh_screen:
+    xr0 = 0x0001d113
+    [er0] = r2
+    xr0 = 0x0015f031
+    [er0] = r2
+```
+- Chúng sẽ rút gọn từ labels `refresh_screen` theo công thức:
+```x86asm
+# getscancode_nodelay
+refresh_screen:
+    xr0 = 0x0015f031
+    [er0] = r2
+```
+```x86asm
+# getscancode
+refresh_screen:
+    xr0 = 0x0015f031
+    [er0] = r2
+    xr0 = 0x0015f031
+    [er0] = r2
+```
+
+- Đây chỉ là mẹo đơn giản trong quá trình học **ROP** mà tui biết được.
+
+*Guide by <@1329789949372797001>*
+______________________________________________
+EA SWITCH (Tối ưu xử lý phím)
+EA Switch giúp xử lý phím nhanh hơn thay vì so sánh tuần tự từng key.
+1. Đọc phím không delay
+er0 = adr_of key
+getscancode_nodelay
+
+pop xr12
+setlr
+2. Gọi xử lý trung gian
+call 17CA6
+pop er0
+3. Vùng lưu phím
+key:
+hex 00 00
+4. Gọi xử lý hệ thống
+call 09C20
+call 1C64A
+5. Reset stack
+sp = er6
+pop er8
+6. Function cho từng phím
+key_1_func:
+; xử lý phím 1
+; nhớ set sp giống CMP_BEQ
+
+key_2_func:
+; xử lý phím 2
+7. Vòng lặp chính
+loop:
+8. Bảng nhảy (Jump Table)
+table:
+hex 00 00 00 00 00 00 00 00
+Sau đó:
+Keycode key_1
+adr_of [-2] key_1_func
+
+Keycode key_2
+adr_of [-2] key_2_func
+Kết thúc bảng:
+hex 00 00
+adr_of [-2] loop
+HƯỚNG DẪN SỬ DỤNG LINE_DRAW
+I. Setup cơ bản
+org 0xd730
+
+setlr
+setsr
+buffer_clear
+render.ddd4
+pop xr0
+
+hex 00 00 00 00
+
+BL line_draw
+render.ddd4
+II. Loop vẽ
+loop:
+Copy dữ liệu:
+xr0 = hex 30 d6 84 d1
+BL strcpy
+Reset stack:
+er14 = 0xd62e
+sp = er14
+pop er14
+III. Cách truyền tham số cho line_draw
+xr0 = startx starty endx endy
+BL line_draw
+Ý nghĩa tham số:
+start x: tọa độ ngang bắt đầu (tính từ trái)
+start y: tọa độ dọc bắt đầu (tính từ trên)
+end x: tọa độ ngang kết thúc
+end y: tọa độ dọc kết thúc
+Tất cả đơn vị theo pixel.
+______________________________________________
+Cách dùng bitmap
+```org 0xe9e0
+xr0 = 0x06062020 #cái này là size ví dụ 6x6 thì là 0606, 2020 giữ nguyên 
+call 09848
+er0 = adr_of bitmap
+render.ddd4
+bitmap:
+0xFCCCB4B4CCFC #đây là hex của bitmap ```
+Cách tính size(ví dụ 6x6)
+dec ( nhập size vào )
+6
+=
+Hex (2 số cuối )
+Size x trước rồi size y
+
+Đây là công thức bitmap
+xr0 = hex <x pos>, <y pos>, <x size>, <y size>
+render_bitmap
+er0 = <địa chỉ bitmap>
+bitmap:
+  hex <insert bitmap>
+
+# Cách cài render_bitmap
+```xr0 = <x pos>, <y pos>, <width>, <Height>
+render_bitmap  # 48 98 30 30
+er0 = <addr>
+render.ddd4```
+-# Cách tính ``x pos`` với ``y pos`` muốn cho nó ra giữa thì đối với x: ``192 - <chiều ngang của thứ muốn vẽ là bao nhiêu ô pixel> : 2`` đối với y cũng làm tương tự ``63 - <chiều cao của thứ muốn vẽ là bao nhiêu ô pixel> : 2`` là ra
+**Lưu ý : **tất cả đều phải đổi sang dưới dạng hex Từ Dec -> Hex
+
+Tất cả render_bitmap
+
+.l_020: # render_bitmap
+    push lr                        ; 09846 | F8CE
+    push xr4                       ; 09848 | F46E
+    push qr8                       ; 0984A | F87E
+    add sp, -4                     ; 0984C | E1FC
+    mov er8, sp                    ; 0984E | A81A
+    l er8, 20[er8]                 ; 09850 | A888 0014
+    bc eq, .l_0C6                  ; 09854 | C94B
+.l_030:
+    mov er10, er2                  ; 09856 | FA25
+    add r10, 255                   ; 09858 | 1AFF
+    mov r5, r10                    ; 0985A | 85A0
+    push er0                       ; 0985C | F05E
+    add r0, r2                     ; 0985E | 8021
+    bc lt, .l_0CE                  ; 09860 | C149
+    cmp r0, 193                    ; 09862 | 70C1
+    bc ge, .l_0CE                  ; 09864 | C047
+    add r1, r3                     ; 09866 | 8131
+    bc lt, .l_0CE                  ; 09868 | C145
+    cmp r1, 65                     ; 0986A | 7141
+    bc ge, .l_0CE                  ; 0986C | C043
+    pop er0                        ; 0986E | F01E
+    mov er2, sp                    ; 09870 | A21A
+    bl f_094BE.l_00A               ; 09872 | F001 94C8
+    mov r7, r0                     ; 09876 | 8700
+
+.l_052:
+    mov r0, r7                     ; 09878 | 8070
+    mov r1, 0                      ; 0987A | 0100
+    l r15, d_0388C[er0]            ; 0987C | 9F08 388C
+    l r14, d_0389C[er0]            ; 09880 | 9E08 389C
+    mov r4, 0                      ; 09884 | 0400
+.l_060:
+    cmp r10, 8                     ; 09886 | 7A08
+    bc ge, .l_070                  ; 09888 | C006
+    mov r0, 7                      ; 0988A | 0007
+    sub r0, r10                    ; 0988C | 80A8
+    mov er2, er14                  ; 0988E | F2E5
+    sllc r15, r0                   ; 09890 | 8F0B
+    sll r14, r0                    ; 09892 | 8E0A
+    and r15, r3                    ; 09894 | 8F32
+
+.l_070:
+    add r4, 1                      ; 09896 | 1401
+    mov er8, er8                   ; 09898 | F885
+    bc eq, .l_07A                  ; 0989A | C902
+    l r0, [er8]                    ; 0989C | 9080
+    bc al, .l_080                  ; 0989E | CE03
+.l_07A:
+    mov er0, sp                    ; 098A0 | A01A
+    l r0, 2[er0]                   ; 098A2 | 9008 0002
+.l_080:
+    mov r13, r0                    ; 098A6 | 8D00
+    mov r12, 0                     ; 098A8 | 0C00
+    srlc r12, r7                   ; 098AA | 8C7D
+    srl r13, r7                    ; 098AC | 8D7C
+    mov r0, r13                    ; 098AE | 80D0
+    mov r1, r15                    ; 098B0 | 81F0
+    mov er2, sp                    ; 098B2 | A21A
+    l er2, [er2]                   ; 098B4 | 9222
+    bl f_093C0                     ; 098B6 | F001 93C0
+    pop er0                        ; 098BA | F01E
+    add er0, 1                     ; 098BC | E081
+    push er0                       ; 098BE | F05E
+    cmp r7, 0                      ; 098C0 | 7700
+    bc eq, .l_0AA                  ; 098C2 | C906
+    mov r0, r12                    ; 098C4 | 80C0
+    mov r1, r14                    ; 098C6 | 81E0
+    mov er2, sp                    ; 098C8 | A21A
+    l er2, [er2]                   ; 098CA | 9222
+    bl f_093C0                     ; 098CC | F001 93C0
+
+.l_0AA:
+    mov er8, er8                   ; 098D0 | F885
+    bc eq, .l_0B0                  ; 098D2 | C901
+    add er8, 1                     ; 098D4 | E881
+.l_0B0:
+    add r10, 248                   ; 098D6 | 1AF8
+    bc lt, .l_060                  ; 098D8 | C1D6
+    mov r2, 24                     ; 098DA | 0218
+    sub r2, r4                     ; 098DC | 8248
+    mov r3, 0                      ; 098DE | 0300
+    pop er0                        ; 098E0 | F01E
+    add er0, er2                   ; 098E2 | F026
+    push er0                       ; 098E4 | F05E
+    mov r10, r5                    ; 098E6 | 8A50
+    add r11, 255                   ; 098E8 | 1BFF
+    bc ne, .l_052                  ; 098EA | C8C6
+.l_0C6:
+    add sp, 4                      ; 098EC | E104
+    pop qr8                        ; 098EE | F83E
+    pop xr4                        ; 098F0 | F42E
+    pop pc                         ; 098F2 | F28E
+
+how to dịch tranh sang hex=)))
+■ □ ■ ■ □ □ ■ □
+1 0 1 1 0 0 1 0
+= 10110010 = B2
+
+val = pixels[x, y]
+                bit = 0 if val >= 128 else 1
+                byte = (byte << 1) | bit
+                bit_index += 1
+
+                if bit_index == 8:
+                    hex_list.append(f"{byte:02X}")
+Từ bin => hex
+______________________________________________
+# Code rop spell cơ bản
+```org 0xe9e0 # hoặc là 0xd730
+
+gay: # đặt cho nó 1 cái tên ko thì 1 tên lửa
+xr0 = 0x3001, adr_of text # 01 là linepos
+printline # nếu xài 0x30 thì dùng printline
+render.ddd4 # render.ddd4
+
+text: # text
+str"~~Nhập~vào~đây~~~" # "~" là dấu cách```
+-# Comp ra là có ngay 1 tên lửa và 5 quả trứng :>
+______________________________________________
+Ví dụ cho spell
+org 0xe9e0 #e9e0 là địa chỉ pro
+text: #in chữ
+  xr0 = 0x3130, adr_of skibidi #label đặt tên gì cũng đc , 31 là dòng 
+  printline # lệng in chữ 
+  render.ddd4 # hiện lên màn hình
+## Launcher(D180): ( có thể sài launcher chung )
+```
+FD 24 30 30 A8 9F 30 30 E0 A0 30 30 DA 7B 31 30 
+fe01 e0 e9 30 d7 2e d7 32 89 31 30 30 30 74 1F 32 48
+```
+
+```org 0xe9e0
+  setlr 
+  setsfr
+  buffer_clear 
+cursor:
+  xr0 = 0x0001d113
+  [er0] = r2 
+print_text:
+  xr0 = 0x3001, adr_of text
+  printline 
+  render.ddd4 
+text:
+  str"~~~~Jay~Bryan"
+  0x00 ```
+setlr và setsfr để launcher k phải thêm thôi 
+còn cursor là không flash con trỏ 
+còn lại thì in chữ thôi
+
+
+**Cách ``setlr`` hợp lý**
+Viết chương trình bất kì
+Đến lúc mình gọi func, đọc func đó xem sau `` BL`` nó là gì (nếu func đó có dùng`` BL``). Nếu sau ``BL`` không phải `` POP PC`` chứng tỏ ``LR`` đã point sai
+Lúc này sau khi gọi‎ func đó xong, setlr là được rồi thêm mấy gadget end ở ``RT`` vô thoải mái.
+
+
+# cách làm nhấp nháy
+er0 = <value>; delay giống như delay(<value>)
+
+er0 = <interval>
+delay
+
+1 giây là er0 = hex 1f 40
+______________________________________________
+**Loop tren 580VNX**
+```xr0=hex 30d684d1
+Bl strcpy
+er14=hex 2ed6
+sp=er14, pop er14```
+
+Launcher:
+```FD24 30 30 DA 7B 31 30 [length] [addr progam] [addr backup] [addr backup -2] 32 89 31 30 30 30 74 1F 32 48```
+  **Tip: **Độ dài program có thể để FE01 cho program ngắn, FE02 cho program vừa, FE03 cho program dài. Không nhất thiết phải nhập chính xác độ dài program.
+
+
+
+# LOOP NEW 2
+***Original:
+78 5C 31 30 2e d6 40 07 31 30
+
+New:
+34 7b 31 30 2e d6 34 7b 32 7b 31 30 34 7b 31 30 D0 08 33 30 2e 70 32 30***
+______________________________________________
+Loop 880
+Er10 = adr_of [length]
+Er0 = 0x0001
+Qr0 = 0xd830e340
+0xe33e0101
+Hex e6 4d
+Length:
+Size(end-length)
+0x0000
+Sp = er6
+______________________________________________
+# Cách khoá ON
+Công thức: Set F00A thành 03
+```
+xr0 = 0xf00a, 0x0300
+[er0]=r2
+```
+Để mở khoá ON thì chỉ cần set lại thành 00
+```
+xr0 = 0xf00a, 0x0000
+[er0]=r2
+```
+______________________________________________
+# Cach tang gia tri 1 dia chi tren 580VNX
+ASM:
+```er2=[value]
+er8=[addr]
+xr8=hex 30303030```
+Dich:
+```74 89 31 30 [value] A6 A8 30 30 [addr] A0 9C 30 30 30 30 30 30```
+~~Chu thich:~~
+``value : gia tri muon tang``
+``addr : dia chi muon tang``
+
+## MỘT SỐ VALUA ĐỂ TĂNG
+```
+FFFF: Giảm
+0001: Tăng
+```
+______________________________________________
+# Setup key
+```er0 = hex ????
+getkey
+setlr
+er2 = hex ???? <= nhu er0
+er0 = er2, r2 = 9, rt
+er2 = hex ....  <= key
+er0 = er2_eq, r0 = 1, rt
+er4 = adr_of [-2] key_next or other_key
+er2 = 0x000A or 0x0038
+er0 *= r2, er2 = er0, er0 += er4, rt
+er14 = er0, pop er0
+0x30303030
+sp = er14, pop er14```
+**Set trc loop**
+```er14 = adr_of [-2] loop
+sp = er14, pop er14```
+______________________________________________
+# HOW TO USE CMP_BEQ V2
+
+```
+er2 = Địa chỉ của giá trị muốn so sánh
+er0 = [er2],r2 = 9,rt (Đưa giá trị từ er2 về er0)
+er2 = Giá trị muốn so sánh với er0
+er0 - er2_eq,r0 = 1,rt (So sánh er0 với er2, nếu er0 ≠ er2 thì r0 = 0,er0 = er2 thì r0 = 1)
+r1 = 0,rt (Đưa r1 về 0)
+er4 = Địa chỉ ADDR chạy khi er0 ≠ er2
+er2 = Độ dài của ADDR khi [er0 = er2] - ADDR khi [er0 ≠ er2]
+er0*=r2,er2=er0,er0+=er4
+er14 = er0,pop xr0 (Lưu địa chỉ đã setup ở er0 sang er14)
+0x30303030
+sp = er14,pop er14
+```
+
+EXAMPLE:
+```
+org 0xd830
+
+# ...
+
+setlr
+DI,RT
+
+er2 = 0xd820
+er0 = [er2],r2 = 9,rt
+er2 = 0x0101
+er0 - er2_eq,r0 = 1,rt
+r1 = 0,rt
+er4 = adr_of [-2] false
+er2 = adr_arith true - adr_arith false, 0x30
+er0*=er2,er2=er0,er0+=er4
+er14 = er0,pop xr0
+0x30303030
+sp = er14,pop er14
+
+false:
+# ...
+goto continue_or_loop
+
+true:
+
+# ...
+
+continue_or_loop:
+# ...
+```
+————————————————————————————————————-
+# Cuộn liên tục 
+```key:
+er8 = 0xf039
+er2 = 0x0001
+[er8]+=er2,pop xr8
+0x30303030
+goto loop
+# […]```
+______________________________________________
+```
+buffer_clear
+Xr0= hex xx(địa chỉ x) yy(...y) 01 30
+Call 091fc
+Render.ddd4
+Hex 30 30 33 30```
+Cái đầu thêm buffer  clear nhá
+Cái cuối thêm hex 3030 3330
+______________________________________________
+# Cách dùng cvt_key
+```er0 = 0x????
+getscancode or getscancode_nodelay
+xr0 = 0xD70E????  <= ???? nhu er0
+setlr
+cvt_key
+er8 = 0x001C
+r0 -= r8, pop er8, rt
+0x3030
+r1 = 0, rt
+er2 = adr_of keymap
+er0 += er0, er2 += er0, er0 = [er2]
+er2 = er0, er0 += er4, rt
+er8 = adr u want to up or down
+r0 = 0, [er8] += er2. pop xr8
+0x30303030```
+# Sau loop set keymap
+______________________________________________
+# SmartCpy non-an
+Token
+```an 00000 @ 0 b . <optn 2 1> d/dx( <bình phương> @ ln( 10 0000 4cos-1( 10 [addr] F <optn 2 1>
+6 LCM( 10 in>cm 00 cos( @ 10 <optn 3 2> @ Int( F 2 : [data as hex]```
+Hex:
+```@ = 1. 00 00 FD 20 80 30 C1 x10^ 02:
+@ = 1. [addr] 5C EF 3F 30 30 x10^ 30:
+@ = 1 FD FD 23```
+______________________________________________
+# Cách dùng EA SWITCH để setup key ngắn
+```er0 = adr_of key
+getkey or getscancode 
+xr12 = adr_of [-10] table, adr_of [-10] table 
+setlr
+call 17CA6
+pop er0
+key:
+hex 00 00
+call 09C20
+call 1C64A
+sp = er6, pop er8
+key_1_func:
+[Chức năng key_1,nhớ set sp như CMP_BEQ]
+key_2_func:
+[Chức năng key_2]
+...
+[Loop here]
+table:
+Keycode key_1 (xem ở D150)
+adr_of  [-2] key_1_func
+Keycode key_2
+adr_of [-2] key_2_func
+hex 00 00
+adr_of [-2] loop```
+______________________________________________
+# How to set sp 
+```2702e    sp = er14,pop er14,rt
+12da6    sp = er14,pop qr8
+23f82    sp = er14,pop qr8,pop qr0
+20d60    sp = er14,pop er14
+21f74    sp = er6,pop er8
+09820    sp = er14,pop xr12
+13aac    sp = er14,pop qr8,pop er6```
+** Ví dụ **
+```sp = er14,pop er14 thì địa chỉ set sp nằm ở er14,do có pop er14 ở sau nên cần trừ 2 byte ở địa chỉ set sp (Như E9E0 -> E9DE)(ERn = 2 byte)
+còn sp = er14,pop xr12 thì set địa chỉ set sp ở er14,do có pop xr12 ở sau nên cần trừ 4 byte ở địa chỉ set sp (XRn = 4 byte)```
+______________________________________________
+# Getscancode guide
+## Format từng key
+```_$key_n:
+  er0 = 0xd730
+  getscancode
+  setlr
+
+  er2 = 0xd730    ->Địa chỉ nhảy CMP (Đặt đâu cũng được nhưng không được trong program hay backup,...)
+
+  er0 = [er2],r2 = 9,rt
+
+  er2 = 0x0101        ->Đây là KI;KO,tìm được ở D150 (vd 0101 là nút 1)
+
+  er0 - er2_eq,r0 = 1,rt
+  0x3032ac30
+
+  er4 = adr_of [-2] _$key_n+1.       ->Địa chỉ setup key tiếp theo -2
+
+  er2 = 0x0038        ->Độ dài của setupkey (Không quan trọng lắm vì thường độ dài là 38, đến other_key <tức những key không setup> thì chỉnh về 0a thôi.Lý do tý nói)
+
+  er0*=r2, er2 = er0, er0+=er4, rt
+  er14 = er0, pop xr0
+  0x30303030
+  sp = er14, pop er14```
+______________________________________________
+## Thứ tự trong program
+```_$key_1
+
+_$key_2
+
+_$key_1_func
+
+_$key_3
+
+_$key_2_func
+
+...
+_$key_n
+_$key_n-1_func
+...
+
+_$lastkey (Chỉnh cái độ dài func của key tiếp theo về 0a,chỉnh er4 = adr_of [-2] _$key_2 là er4 = adr_of [-2] _$otherkey)
+
+_$key_n-1_func (Tức là chức năng của key trc)
+
+_$otherkey_func   -> Cái này thường để như sau:
+pop er14
+adr_of _$backup -2
+sp = er14 , pop er14
+
+_$lastkey_func
+
+_$backup```
+
+-# _$key_n là setup key đó
+-# _$key_n_func là chức năng key đó
+-#  Áp dụng thứ tự này với cmp eq
+______________________________________________
+# CÁCH MÀ CMP BEQ CỦA KEY HOẠT ĐỘNG
+```setup_key:
+  er0 = 0xd730 ->Địa chỉ nhảy keycode
+  getscancode
+  setlr
+  er2 = 0xd730  ->Địa chỉ nhảy keycode (Đặt đâu cũng được nhưng không được trong program hay backup,...)
+Ví dụ nếu bấm một thì địa chỉ này sẽ nhảy sang 01 01,bấm hai là 01 02
+  er0 = [er2],r2 = 9,rt 
+  Đưa giá trị của địa chỉ d730 về er0
+  er2 = 0x0101        ->Đây là KI;KO,tìm được ở D150 (vd 01 01 là nút 1)
+  er0 - er2_eq,r0 = 1,rt
+-> Nếu er0 khác er2,r0 = 00 (Đồng nghĩa với key được bấm khác key được set ở er2),nếu er0 = er2,r0 = 01 (Đồng nghĩa với key được bấm giống key được set ở er2)
+  0x3032ac30
+  Đưa r1 về 00
+  er4 = adr_of [-2] setup_key tiếp theo.       -> Địa chỉ setup key tiếp theo -2 do set sp
+  er2 = 0x0038     ->Độ dài của setupkey tiếp theo (đã đổi ra hex)
+  er0*=r2, er2 = er0, er0+=er4, rt
+  Lấy er0 nhân cho r2 và lưu kết quả ở er0,lấy er0 + er4 lưu kết quả ở er0
+  Nếu key bấm không khớp với key được set: er4 sẽ được không được cộng (er0 = 0 nhân 2 = 0 do er0 = 0 từ CMP BEQ)
+  Nếu key bấm khớp với key đã set: er4 được +38 (er0 = 1 nhân 38 = 38 đó er0 = 1 từ CMP BEQ)
+  er14 = er0, pop xr0
+  Đưa er14 bằng giá trị ở er0 để set sp ở er14
+  Nếu key bấm khớp với key đã set thì sẽ nhảy qua key_func luôn (do địa chỉ setup_key tiếp theo               cộng cho 38)
+  Nếu không khớp với key đã set thì sẽ nhảy qua setup_key tiếp theo (do địa chỉ setup_key tiếp theo không được cộng a.k.a cộng cho 0) và sẽ tiếp tục được CMP và check ở setup_key đó
+  0x30303030 # pad xr0
+  sp = er14, pop er14``````Ở setup_key cuối cùng,er4 thay vì bằng setup_key thì nó sẽ là otherkey_func,độ dài của setup_key đổi thành 0a (do er14 = adr_of [-2] loop và set sp dài 10 byte đổi ra hex là 0a).
+Nếu key được bấm vẫn khác các giá trị key được setup trong setup_key thì nó sẽ nhảy qua và chạy otherkey_func và quay lại nhờ loop
+Nếu key được bấm đã khớp với giá trị key ở setup_key cuối cùng thì nó sẽ nhảy qua và chạy key_func cuối cùng do đã cộng 0a để không phải chạy otherkey_func```
+______________________________________________
+# Cách dùng calc_func (1:7922)
+- `calc_func` chính là hàm tính toán giúp máy tính tính ra những kết quả từ số, **và với ROP, chúng có tính ứng dụng rất cao**
+- Cách sử dụng:
+```
+xr0 = adr_of addr_calc, adr_of result
+calc_func
+addr_calc:
+adr_of calc
+calc:
+hex 31 a6 31                   # Dạng hex của "1+1"
+result:
+...
+```
+- Nói tóm lại, trước khi gọi calc_func thì ta cần đưa er0 trở thành **địa chỉ chứa địa chỉ của phép tính** ta muốn tính, er2 là địa chỉ đầu ra (tức là kết quả) 
+- **Lưu ý**: Địa chỉ đầu ra sẽ có dạng **NUM**, không phải dạng **HEX** nên muốn chuyển về dạng hex ta dùng hàm `num_to_byte`
+@everyone Hú hú há há
+______________________________________________
+CÁC DRAW_FUNC MÀ MỌI NGƯỜI NÊN BIẾT (KHÔNG THÌ THÔI 🐧 )
+Pixel_draw (091FC): r0 = x position, r1 = y position,  r2 = color (00 = Black, 01 = White), r3 = byte pad (Không để làm gì)
+Tác dụng : In một pixel lên vị trí x và vị trí y tuỳ theo màu
+Line_draw (28AC2 hoặc 08E64): r0 = x start position, r1 = y start position, r2 = x end position, r3 = y end position
+Tác dụng : In pixel dưới dạng thanh (Nối vị trí của x start đến vị trí x end và y cũng thế)(khó giải thích quá)
+Render_bitmap (09846): r0 = x position, r1 = y position, r2 = x size, r3 = y size, er0 (sau label do bị push ig) = Địa chỉ tranh
+
+Cái pixel draw nó sẽ vẽ lên màn hình 1 chấm pixel bằng cách lấy dữ liệu hex từ xr0
+X là chiều dài y là chiều rộng
+Line draw là nối
+Render bitmap thì lười chỉ quá
+______________________________________________
+đấy là ae sẽ thêm 1 key để toggle khoá ON/bấm được ON
+cho mấy thg bạn phá phách nếu nó cố tình bấm ON để ngắt mình chơi thì ta bấm vào 1 key để khoá ON
+có khá nhiều cách, và t sẽ cho ae tham khảo cái này 🐧 
+```
+f_2F9F6:
+2:F9F6H    0000            MOV R0, #00H
+2:F9F8H    A0F1D110        TB eA
+2:F9FEH    0001            MOV R0, #01H
+.l_00A:
+2:FA00H    FE1F            RT```
+giải thích: với cái TB byte_0xD110 thì giả sử byte ở 0xD110 của ae là 80 (0b10000000) thì nó lật 1 thành 0 -> store vào Z mà BEQ chỉ đc thực thi nếu Z = 1, suy ra lúc này R0 = 1 và RT
+______________________________________________
+First
+MOV R6, #06H
+=>
+R6 = 6 hay nói dễ hiểu hơn:
+
+sao chép giá trị bên phải sang bên trái
+ADD nguồn, giá trị
+=> nguồn += giá trị
+
+SUB nguồn, giá trị
+=> nguồn -= giá trị
+```ST giá trị, [nguồn]
+=> [nguồn(vị trí ram,thường là ER)] = giá trị
+=> lưu giá trị vào ram
+
+L nguồn, [giá trị(vị trí ram)]
+=>  giá trị = [nguồn]
+=> đọc giá trị trong ram
+```
+______________________________________________
+# Hướng dẫn viết lua
+
+`inj0={0x[hex], lặp lại đến lúc bạn muốn rồi } for i=0,[số hex] do data[0xD180+i]=inj0[i+1] end`
+**VD: tôi viết muốn viết 0123456789 thì:**
+`inj0={0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39} for i=0,30 do data[0xD180+i]=inj0[i+1] end`
+**sao khi xong thì enter quay về máy tính [=] [>]**
+______________________________________________
+**launcher chung:**
+hex fd 24 30 30
+qr0 = pr_length, startpos, 0xd730, 0xd72e 
+*call 2f5ea* có thể thay cho qro…
+
+call 18932
+0x3030
+sp = er6,pop er8
+
+
+Launcher dạng hex
+
+Cách 1
+Vào 124an
+<48 byte>
+34 7B 31 30 30 D7 E0 E9 50 94 30 30 30 01 78 5C 31 30 2E D7 60 0D 32 48
+
+
+Cách 2
+# Laucher chung cho ae nào cần:( non-an)
+```FD24 30 30 [A8 9F 30 30 E0 A0 30 30 60 8C 30 30] DA 7B 31 30 (FE 02) E0 E9 30 D7 2E D7 32 89 31 30 30 30 74 1F 32 30```
+-# Ở chỗ ``[A8 9F 30 30 E0 A0 30 30 60 8C 30 30]`` thì ae có thể cho vào trừ khi asm của ae ngay từ đầu đã có setlr, setsfr, buffer_clear rồi thì không cần thêm:> còn asm không có thì khuyến khích là cho vào:>
+-# Còn chỗ ``(FE 02)`` Thì đây là độ dài của program nếu program của ae dài thì có thể dùng FE 03 hoặc FE 04 tuỳ thuộc vào độ dài prog của ae
+______________________________________________
+# Bang key cho ai can
+```[SHIFT]: 80 01
+[ALPHA]: 80 02
+[←]: 40 04
+[→]: 80 08
+[↑]: 80 04
+[↓]: 40 08
+[MENU]: 80 10
+[OTPN]: 40 01
+[CALC]: 40 02
+[TÍCH PHÂN]: 40 10
+[X]: 40 02
+[PHÂN SỐ]: 20 01
+[√]: 20 02
+[x²]: 20 04
+[xˆ]: 20 08
+[log]: 20 10
+[IN]: 20 20
+[(-)]: 10 01
+[ĐỘ]: 10 02
+[x^-1]: 10 04
+[SIN]: 10 08
+[COS]: 10 10
+[TAN]: 10 20
+[STO]: 08 01
+[ENG]: 08 02
+[(]: 08 04
+[)]: 08 08
+[S<=>D]: 08 10
+[M+]: 08 20
+[AC]: 04 10
+[÷]: 02 10
+[-]: 01 10
+[x10]: 04 40
+[=]: 01 40
+[0]: 10 40
+[1]: 01 01
+[2]: 01 02
+[3]: 01 04
+[4]: 02 01
+[5]: 02 02
+[6]: 02 04
+[7]: 04 01
+[8]: 04 02
+[9]: 04 04
+[DEL]: 04 08
+[×]: 02 08
+[+]: 01 08
+[.]: 08 40
+[ANS]: 02 40```
+______________________________________________
+Một số chương trình đã đc decompiler
+
+
+
+Spell 3line
+
+org 0xd730
+setlr
+setsfr
+xr0 = 0x3001, adr_of 1
+printline
+render.ddd4
+xr0 = 0x3011, adr_of 2
+printline
+render.ddd4
+xr0 = 0x3021, adr_of 3
+printline
+render.ddd4
+loop:
+xr0 = 0xd184d630
+BL strcpy
+er14 = 0xd62e
+sp = er14,pop er14
+1:
+str "txt"
+0x00
+2:
+str "txt"
+3:
+str "txt"
+0x00
+______________________________________________
+# Asm GD Wave
+```setlr
+setsfr
+buffer_clear
+er0 = hex 5AD7 
+getscancode_nodelay
+xr12 = hex E8D7E8D7
+setlr
+memcpy_struct
+er0 = hex 0000
+ea_switchcase
+er6 = [ea+]
+sp = er6, pop er8
+er0 = hex CDD7
+er2 = hax FF00
+[er0] = r2
+er0 = hex C2D7
+er2 = hex AAEA
+[er0] = er2, rt
+er14 = hex B0D7
+sp = er14, pop er14
+er0 = hex CDD7
+er2 = hex 0100
+[er0] = r2
+er0 = hex C2D7
+er2 = hex B2EA
+[er0] = er2, rt
+xro = hex 01110808
+render_bitmap
+er0 = 02D8
+render.ddd4
+er2 = hex 0100
+er8 = hex 66EA
+xr8 = hex 30303030
+xr0 = hex 30D684D1
+BL strcpy
+er14 = hex 2ED6
+sp = er14, pop er14
+hex 80 04 66 D7 00 00 90 D7 3F 7E FF FF FF FF
+7E 3C 3C 7E FF FF FF FF 7E 3C 00 00 00 00 00```
+______________________________________________
+# Loading asm
+```org 0xe9e0
+setlr 
+setsfr
+buffer_clear
+xr0 = 0x0e11 , adr_of text 
+printline
+xr0 = 0x0e21 , adr_of text2
+printline
+render.ddd4
+er0 = 0x1010
+delay
+xr0 = 0x0e21 , adr_of text3
+printline
+render.ddd4
+er0 = 0x1010
+delay
+xr0 = 0x0e21 , adr_of text4
+printline
+render.ddd4
+er0 = 0x1010
+delay
+xr0 = hex 30D684D1
+BL strcpy
+er14 = hex 2ED6
+sp = er14, pop er14
+text1:
+hex 43 61 6C 63 75 6C 61 74 6F 72 01 70 72 6F 67 61 6D 00
+text2:
+hex 4C 6F 61 64 69 6E 67 2E 00
+text3:
+hex 4C 6F 61 64 69 6E 67 2E 2E 00
+text4:
+hex 4C 6F 61 64 69 6E 67 2E 2E 2E 00```
+
+**Launcher: **
+```FD24 30 30 DA 7B 31 30 FE 01 E0 E9 30 D7 2E D7 32 89 31 30 30 30 74 1F 32 30```
+______________________________________________
+# Đây là 1 ví dụ: Bấm 1, 2, 3 để hiện text
+```org 0xd730
+ 0x0000
+_$cursor_no_flash:
+  xr0 = 0x0001d113
+  [er0]=r2
+_$key_1:
+  er0 = 0xd730
+  getscancode
+  setlr
+  er2 = 0xd730 
+  er0 = [er2],r2 = 9,rt
+  er2 = 0x0101
+  er0 - er2_eq,r0 = 1,rt
+  0x3032ac30
+  er4 = adr_of [-2] _$key_2
+  er2 = 0x0038
+  er0*=r2,er2 = er0,er0+=er4,rt
+  er14 = er0,pop xr0
+  0x30303030
+  sp = er14,pop er14
+_$key_2:
+  setlr
+  er2 = 0xd730 
+  er0 = [er2],r2 = 9,rt
+  er2 = 0x0201
+  er0 - er2_eq,r0 = 1,rt
+  0x3032ac30
+  er4 = adr_of [-2] _$key_3
+  er2 = 0x0038
+  er0*=r2,er2 = er0,er0+=er4,rt
+  er14 = er0,pop xr0
+  0x30303030
+  sp = er14,pop er14
+_$key_1_func:
+  xr0 = 0x210e, adr_of _$text1
+  smallprint
+  render.ddd4
+  er14 = adr_of [-2] _$restore
+  sp = er14,pop er14
+_$key_3:
+setlr
+  er2 = 0xd730 
+  er0 = [er2],r2 = 9,rt
+  er2 = 0x0401
+  er0 - er2_eq,r0 = 1,rt
+  0x3032ac30
+  er4 = adr_of [-2] _$other_key
+  er2 = 0x000a
+  er0*=r2,er2 = er0,er0+=er4,rt
+  er14 = er0,pop xr0
+  0x30303030
+  sp = er14,pop er14
+_$key_2_func:
+  xr0 = 0x210e, adr_of _$text2
+  smallprint
+  render.ddd4
+  er14 = adr_of [-2] _$restore
+  sp = er14,pop er14
+_$other_key:
+  er14 = adr_of [-2] _$restore
+  sp = er14,pop er14
+_$key_3_func:
+  xr0 = 0x210e, adr_of _$text3
+  smallprint
+  render.ddd4
+_$restore:
+  xr0 = 0xd184d630
+  BL strcpy
+  er14 = 0xd62e
+  sp = er14,pop er14
+_$text1:
+  str "aaaaaaaaaaaaaaaaa"
+  0x00
+_$text2:
+  str "bbbbbbbbbbbbbbbbb"
+  0x00
+_$text3:
+  str "ccccccccccccccccc"
+ 0x00```
+-# ||<@1264794170908868640>||
+______________________________________________
+# code mẫu delay
+
+```org 0xe9e0
+display:
+    xr0 = draw_mode, 0x04, 0x30
+    [er0]=r2
+    xr0 = 0x3021, adr_of text
+    printline
+    render.ddd4
+screen:
+    er2 = 0x0101
+    er8 = 0xf031
+    [er8]+=er2,pop xr8
+    0x30303030
+    er8 = 0xf039
+    [er8]+=er2,pop xr8
+    0x30303030
+    er0 = 0x0101
+    delay
+    er14 = adr_of [-2] screen
+    sp = er14,pop er14
+text:
+    0x20206120696f756d206175642069616c20
+    ______________________________________________
+# HƯỚNG DẪN EA_CMP (ko cho getkey)
+
+```
+org 0xd730
+main:
+#... xử lý gì cx đc miễn output ở er0
+ea= adr_of table #init for ea_cmp
+call 09C20 #ea_cmp
+call 1C64A #load eajump
+sp = er6, pop er8
+
+#xử lý theo functions
+
+table:
+#0x???? check giá trị với er0 trước init for ea_cmp
+#adr_of [-2] "function được nhảy tới khi giá trị ở trên = er0 trước init for ea_cmp"
+```
+
+## ví dụ điển hình (keobuabao):
+
+```
+org 0xd730;
+main:
+xr0= adr_of adrrandom, adr_of result
+call 17922 #calc_func
+er0=0x1111
+delay
+er0= adr_of result
+num_to_byte
+ea= adr_of table #init for ea_cmp
+call 09C20 #ea_cmp
+call 1C64A #load eajump
+sp = er6, pop er8
+
+adrrandom:
+adr_of random #calc_func chạy dựa vào địa chỉ này
+
+random:
+0x332c3187
+0x0000 #dừng phép tính + pad
+# ranint(1,3 (phép tính, ko point thẳng, phải qua addr)
+
+result:
+0x11223344556677881122 #byte trước cho kết quả
+
+keo:
+er0=0x0003 #if you know you know
+break
+bua:
+er0=0x0002
+break
+bao:
+er0=0x0001
+break
+error:
+break
+
+table:
+0x9901
+adr_of [-2] keo
+0x9902
+adr_of [-2] bua
+0x9903
+adr_of [-2] bao
+0x9900
+adr_of [-2] error
+```
