@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compiler Debug Assistant - Casio Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 1400px;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #2d3748;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4a5568;
+        }
+
+        .model-info {
+            background: #4a5568;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .model-info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .quick-fix {
+            background: #48bb78;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 14px;
+        }
+
+        .quick-fix:hover {
+            background: #38a169;
+            transform: translateX(5px);
+        }
+
+        .error-type {
+            background: #f56565;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f7fafc;
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: white;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .chat-header h2 {
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-header h2 i {
+            color: #667eea;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 80%;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .message.bot .avatar {
+            background: #667eea;
+            color: white;
+        }
+
+        .message.user .avatar {
+            background: #48bb78;
+            color: white;
+        }
+
+        .content {
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .message.user .content {
+            background: #48bb78;
+            color: white;
+        }
+
+        .content p {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .content pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 10px 0;
+        }
+
+        .code-fix {
+            background: #1a202c;
+            border-left: 4px solid #48bb78;
+        }
+
+        .code-error {
+            background: #1a202c;
+            border-left: 4px solid #f56565;
+        }
+
+        .line-number {
+            color: #718096;
+            user-select: none;
+            margin-right: 10px;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 2px solid #e2e8f0;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        textarea {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            resize: none;
+            height: 80px;
+            outline: none;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.3s;
+            height: fit-content;
+        }
+
+        button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .file-info {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .file-tag {
+            background: #e2e8f0;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            color: #4a5568;
+        }
+
+        .common-errors {
+            margin-top: 10px;
+        }
+
+        .error-item {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 8px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .error-item:hover {
+            background: #feb2b2;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="sidebar">
+            <h3>🔧 Compiler Debug Tools</h3>
+            
+            <div class="model-info">
+                <p><strong>📁 Active Files:</strong></p>
+                <p>• libcompiler.py (core)</p>
+                <p>• compiler_.py (main)</p>
+                <p>• run.py (server)</p>
+            </div>
+
+            <div class="error-type">🚨 Common Compiler Errors</div>
+            
+            <div class="common-errors">
+                <div class="error-item" onclick="addError('adr_arith_syntax')">
+                    adr_arith syntax error
+                </div>
+                <div class="error-item" onclick="addError('label_not_found')">
+                    Label not found
+                </div>
+                <div class="error-item" onclick="addError('register_mismatch')">
+                    Register size mismatch
+                </div>
+                <div class="error-item" onclick="addError('npress_overflow')">
+                    NPress > 100
+                </div>
+                <div class="error-item" onclick="addError('command_duplicate')">
+                    Duplicate command
+                </div>
+            </div>
+
+            <h4 style="margin: 20px 0 10px;">⚡ Quick Fixes</h4>
+            
+            <div class="quick-fix" onclick="applyQuickFix('adr_arith')">
+                Fix adr_arith parsing
+            </div>
+            <div class="quick-fix" onclick="applyQuickFix('labels')">
+                Fix label resolution
+            </div>
+            <div class="quick-fix" onclick="applyQuickFix('npress')">
+                Optimize NPress values
+            </div>
+            <div class="quick-fix" onclick="applyQuickFix('str_command')">
+                Fix str command
+            </div>
+            <div class="quick-fix" onclick="applyQuickFix('call_gadget')">
+                Fix call gadget
+            </div>
+        </div>
+
+        <div class="main-chat">
+            <div class="chat-header">
+                <h2>
+                    <i>💬</i>
+                    Compiler Debug Assistant - Phiên bản 2.0
+                </h2>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot">
+                    <div class="avatar">AI</div>
+                    <div class="content">
+                        <p>👋 Xin chào! Tôi là trợ lý debug compiler cho Casio Tool.</p>
+                        <p>Tôi có thể giúp bạn:</p>
+                        <ul style="margin-left: 20px;">
+                            <li>Sửa lỗi syntax trong compiler</li>
+                            <li>Xử lý label không tìm thấy</li>
+                            <li>Tối ưu hóa NPress</li>
+                            <li>Sửa lỗi adr_arith và pr_length</li>
+                            <li>Debug string variables</li>
+                        </ul>
+                        <p>Hãy mô tả lỗi bạn đang gặp hoặc dán code lỗi vào đây!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input">
+                <div class="input-container">
+                    <textarea id="messageInput" placeholder="Nhập code lỗi hoặc mô tả vấn đề..."></textarea>
+                    <button onclick="sendMessage()">Gửi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const errorPatterns = {
+            adr_arith_syntax: {
+                pattern: /adr_arith.*\[.*\].*-.*adr_arith.*\[.*\]/,
+                fix: function(code) {
+                    // Fix adr_arith syntax
+                    return code.replace(/adr_arith\s*\[([^\]]*)\]\s*([^\s-]+)\s*-\s*adr_arith\s*\[([^\]]*)\]\s*([^\s]+)/g, 
+                        'adr_arith [$1] $2 - adr_arith [$3] $4');
+                }
+            },
+            label_not_found: {
+                pattern: /Làm gì có label này|label không tìm thấy/i,
+                fix: function(code) {
+                    // Add missing labels
+                    const lines = code.split('\n');
+                    const labels = new Set();
+                    const missingLabels = [];
+                    
+                    lines.forEach(line => {
+                        const labelMatch = line.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
+                        if (labelMatch) labels.add(labelMatch[1]);
+                        
+                        const refMatch = line.match(/adr_of.*?\s+([a-zA-Z_][a-zA-Z0-9_]*)/g);
+                        if (refMatch) {
+                            refMatch.forEach(ref => {
+                                const label = ref.split(/\s+/).pop();
+                                if (!labels.has(label) && label.match(/^[a-zA-Z_]/)) {
+                                    missingLabels.push(label);
+                                }
+                            });
+                        }
+                    });
+                    
+                    if (missingLabels.length > 0) {
+                        return `; Thêm các label bị thiếu:\n` + 
+                               missingLabels.map(l => `${l}:\n    0x0000`).join('\n') + 
+                               '\n\n' + code;
+                    }
+                    return code;
+                }
+            },
+            register_mismatch: {
+                pattern: /source\/destination target mismatches/i,
+                fix: function(code) {
+                    return code.replace(/([erxq]r\d)\s*=\s*([^,\n]+)/g, (match, reg, val) => {
+                        const size = {'r':1, 'e':2, 'x':4, 'q':8}[reg[0]];
+                        return `${reg} = ${val.padEnd(size*2, '0')}`;
+                    });
+                }
+            },
+            npress_overflow: {
+                pattern: /many keypresses|npress.*100/i,
+                fix: function(code) {
+                    // Optimize addresses for NPress
+                    return code.replace(/call\s+0x([0-9a-f]+)/gi, (match, addr) => {
+                        const num = parseInt(addr, 16);
+                        const optimized = optimizeAddress(num);
+                        return `call 0x${optimized.toString(16)}`;
+                    });
+                }
+            },
+            str_command: {
+                pattern: /str.*undefined|string variable/i,
+                fix: function(code) {
+                    const lines = code.split('\n');
+                    const strVars = new Set();
+                    const newLines = [];
+                    
+                    lines.forEach(line => {
+                        const strMatch = line.match(/str\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*"/);
+                        if (strMatch) strVars.add(strMatch[1]);
+                        newLines.push(line);
+                    });
+                    
+                    // Add missing string declarations
+                    lines.forEach(line => {
+                        const useMatch = line.match(/str\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:;|$)/);
+                        if (useMatch && !strVars.has(useMatch[1])) {
+                            newLines.push(`str ${useMatch[1]} "" ; TODO: define string`);
+                        }
+                    });
+                    
+                    return newLines.join('\n');
+                }
+            },
+            call_gadget: {
+                pattern: /Command.*not found|invalid address/i,
+                fix: function(code) {
+                    return code.replace(/call\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, (match, gadget) => {
+                        // Add 0x prefix if it's a hex address
+                        if (gadget.match(/^[0-9a-f]+$/i) && !gadget.startsWith('0x')) {
+                            return `call 0x${gadget}`;
+                        }
+                        return match;
+                    });
+                }
+            }
+        };
+
+        function optimizeAddress(addr) {
+            // Simple NPress optimization: try even/odd
+            const getNPress = (a) => {
+                const low = a & 0xFF;
+                const high = (a >> 8) & 0xFF;
+                // Simplified NPress calculation
+                return (low % 10) + (high % 10) + (low < 0x30 ? 1 : 2);
+            };
+            
+            const np1 = getNPress(addr);
+            const np2 = getNPress(addr ^ 1);
+            return np1 <= np2 ? addr : addr ^ 1;
+        }
+
+        function addError(type) {
+            const errors = {
+                adr_arith_syntax: `Tôi gặp lỗi adr_arith:
+adr_arith [0] label1 - adr_arith [0] label2
+Lỗi: syntax sai ở dấu -`,
+                
+                label_not_found: `Lỗi: Làm gì có label này má ơi: undefined_label
+Code:
+call pop er0
+adr_of undefined_label
+0x0001`,
+                
+                register_mismatch: `Lỗi: source/destination target mismatches
+er0 = 0x1234`,
+                
+                npress_overflow: `Warning: Line generates many keypresses
+call 0x30301234`,
+                
+                str_command: `Error: Undefined string variable: mytext
+str mytext`,
+                
+                command_duplicate: `Error: Command appears twice - first: test_label -> 12345, second: test_label -> 12346`
+            };
+            
+            document.getElementById('messageInput').value = errors[type];
+        }
+
+        function applyQuickFix(type) {
+            const fixes = {
+                adr_arith: `def fix_adr_arith_parsing():
+    """
+    Sửa lỗi parse adr_arith trong libcompiler.py
+    """
+    # Dòng 381-410 trong libcompiler.py
+    fixed_code = '''
+def parse_adr_part(part):
+    part = part.strip()
+    if part.startswith('adr_arith'):
+        part = part[9:].strip()
+
+    offset = 0
+
+    # Kiểm tra offset trong []
+    if '[' in part and ']' in part:
+        try:
+            start_idx = part.index('[')
+            end_idx = part.index(']')
+            offset_str = part[start_idx+1:end_idx].strip()
+            
+            # Hỗ trợ số âm
+            if offset_str.startswith('-'):
+                offset = -int(offset_str[1:], 0)
+            else:
+                offset = int(offset_str, 0)
+                
+            label = part[end_idx+1:].strip()
+            if not label:
+                raise ValueError(f'Thiếu label: {part}')
+        except ValueError as e:
+            raise ValueError(f'Invalid offset in: {part}')
+    else:
+        label = part.strip()
+        if not label:
+            raise ValueError(f'Thiếu label: {part}')
+
+    return offset, label
+'''
+    return fixed_code`,
+                
+                labels: `def fix_label_resolution():
+    """
+    Sửa lỗi label không tìm thấy
+    """
+    # Thêm vào đầu file sau khi đọc labels
+    fixed_code = '''
+# Kiểm tra tất cả labels trước khi xử lý
+def validate_labels(program_lines):
+    defined_labels = set()
+    referenced_labels = set()
+    
+    for line in program_lines:
+        # Tìm label definitions
+        if line.strip().endswith(':'):
+            defined_labels.add(line.strip()[:-1])
+        
+        # Tìm label references
+        if 'adr_of' in line:
+            parts = line.split()
+            for i, part in enumerate(parts):
+                if part == 'adr_of' and i+1 < len(parts):
+                    label = parts[i+1].strip('[],')
+                    if label and not label.startswith('0x'):
+                        referenced_labels.add(label)
+    
+    # Báo cáo labels thiếu
+    missing = referenced_labels - defined_labels
+    if missing:
+        print(f"Warning: Missing labels: {missing}")
+        # Tự động thêm labels
+        for label in missing:
+            print(f"Adding missing label: {label}")
+            program_lines.append(f"{label}:\\n    0x0000")
+    
+    return program_lines
+'''
+    return fixed_code`,
+                
+                npress: `def optimize_npress_values():
+    """
+    Tối ưu hóa NPress values
+    """
+    # Sửa hàm byte_to_key trong libcompiler.py
+    fixed_code = '''
+@lru_cache(maxsize=256)
+def byte_to_key(byte):
+    """Improved version with better NPress handling"""
+    if byte == 0:
+        return '<NUL>'
+    
+    # Tìm cách nhập tối ưu nhất
+    sym = symbolrepr[byte]
+    
+    # Ưu tiên ký tự có thể nhập trực tiếp
+    if sym not in ('@', '') and sym not in '\\\'"<>:':
+        return sym
+    
+    # Thử các tổ hợp phím khác
+    best_key = f'<{byte:02x}>'
+    best_npress = npress[byte]
+    
+    # Tìm alternative với NPress thấp hơn
+    for alt in range(0x20, 0x100):
+        if npress[alt] < best_npress and alt != byte:
+            # TODO: Check if alt can produce same character
+            pass
+    
+    return best_key
+'''
+    return fixed_code`
+            };
+            
+            const message = fixes[type];
+            if (message) {
+                addBotMessage(message);
+            }
+        }
+
+        function addBotMessage(content) {
+            const messages = document.getElementById('chatMessages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message bot';
+            msgDiv.innerHTML = `
+                <div class="avatar">AI</div>
+                <div class="content">
+                    <pre class="code-fix">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                </div>
+            `;
+            messages.appendChild(msgDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function analyzeError(code) {
+            let analysis = "🔍 Phân tích lỗi:\n\n";
+            let fixes = [];
+            
+            for (const [type, pattern] of Object.entries(errorPatterns)) {
+                if (pattern.pattern.test(code)) {
+                    const fixed = pattern.fix(code);
+                    if (fixed !== code) {
+                        analysis += `✅ Phát hiện lỗi ${type}\n`;
+                        fixes.push(`\n// Fixed version:\n${fixed}`);
+                    }
+                }
+            }
+            
+            if (fixes.length > 0) {
+                return analysis + "\n" + fixes.join('\n\n');
+            }
+            
+            // Kiểm tra các lỗi phổ biến khác
+            if (code.includes('adr_arith')) {
+                analysis += "⚠️ Lỗi cú pháp adr_arith:\n";
+                analysis += "- Kiểm tra dấu '[' và ']' có đúng không?\n";
+                analysis += "- Kiểm tra dấu '-' giữa hai phần\n";
+                analysis += "- Đảm bảo có label sau mỗi phần\n";
+            }
+            
+            if (code.includes('=')) {
+                analysis += "⚠️ Kiểm tra kích thước thanh ghi:\n";
+                const regMatch = code.match(/([erxq]r\d)\s*=\s*(.+)/);
+                if (regMatch) {
+                    const reg = regMatch[1];
+                    const val = regMatch[2];
+                    const size = {'r':1, 'e':2, 'x':4, 'q':8}[reg[0]];
+                    analysis += `- Thanh ghi ${reg} cần ${size*2} ký tự hex\n`;
+                }
+            }
+            
+            return analysis;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            const messages = document.getElementById('chatMessages');
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user';
+            userDiv.innerHTML = `
+                <div class="avatar">User</div>
+                <div class="content">
+                    <pre>${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                </div>
+            `;
+            messages.appendChild(userDiv);
+            
+            // Analyze and respond
+            setTimeout(() => {
+                const analysis = analyzeError(message);
+                
+                const botDiv = document.createElement('div');
+                botDiv.className = 'message bot';
+                botDiv.innerHTML = `
+                    <div class="avatar">AI</div>
+                    <div class="content">
+                        <pre class="${analysis.includes('✅') ? 'code-fix' : 'code-error'}">${analysis.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                        <p style="margin-top: 10px; color: #4a5568;">
+                            💡 Bạn có thể click vào "Quick Fixes" bên trái để áp dụng fix tự động!
+                        </p>
+                    </div>
+                `;
+                messages.appendChild(botDiv);
+                messages.scrollTop = messages.scrollHeight;
+            }, 500);
+            
+            input.value = '';
+        }
+
+        // Handle Enter key
+        document.getElementById('messageInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Auto-resize textarea
+        document.getElementById('messageInput').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+    </script>
+</body>
+</html>
