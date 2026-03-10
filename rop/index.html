@@ -750,7 +750,7 @@
                     </div>
                     <select id="translatorMode" class="model-select-cas" style="width: 100%; margin-bottom: 10px;">
                         <option value="v1" selected>Translator (phiên bản cũ - JavaScript)</option>
-                        <option value="v2">Translator 2.0 (Python Backend - Đề xuất)</option>
+                        <option value="v2">Translator 2.0 (Python Backend - Chính xác cao)</option>
                     </select>
                     <div class="mode-description" id="translatorModeDesc">
                         <i class="fa-regular fa-circle-info"></i> Dịch địa chỉ gadget từ model nguồn sang model đích (phiên bản cũ - JavaScript)
@@ -1364,7 +1364,8 @@
 
         // ===== API CALL CHO TRANSLATOR 2.0 =====
         async function translateWithPythonAPI(sourceModel, targetModel, addresses) {
-            const response = await fetch('/rop/translate', {
+            // Gọi đến một endpoint API đơn giản
+            const response = await fetch('/api/rop/translate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1405,16 +1406,6 @@
                 html += `</div>`;
                 
                 html += `<div class="rop-result-chain">→ ${result.target}</div>`;
-                
-                // Parse và hiển thị thông tin chi tiết nếu có
-                if (result.details) {
-                    const parsed = parseGadgetLine(result.details);
-                    html += `<div class="result-line highlight">`;
-                    html += `<span class="line-address">${parsed.address}</span>`;
-                    html += `<span class="line-opcode">${parsed.opcode}</span>`;
-                    html += `<span class="line-instruction">${parsed.instruction}</span>`;
-                    html += `</div>`;
-                }
                 
                 html += '<div style="margin: 10px 0;"></div>';
             }
