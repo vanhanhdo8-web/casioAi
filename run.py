@@ -2,7 +2,6 @@ import subprocess
 import os
 import mimetypes
 from flask import Flask, request, abort, jsonify, g, send_file, redirect, url_for
-from flask_cors import CORS
 import uuid
 import time
 import json
@@ -12,6 +11,16 @@ import tempfile
 import importlib.util
 import sys
 from pathlib import Path
+
+# Try to import CORS, but don't fail if not available
+try:
+    from flask_cors import CORS
+    CORS_AVAILABLE = True
+    print("✅ Đã import flask_cors")
+except ImportError:
+    CORS_AVAILABLE = False
+    print("⚠️  flask_cors không được cài đặt, CORS sẽ không được kích hoạt")
+    def CORS(app): pass  # Dummy function
 
 # Import ROP API
 sys.path.append(str(Path(__file__).parent / "rop"))
@@ -117,7 +126,11 @@ BLOCK_FILES = {"run.py", "app.py", "config.py", ".env"}
 BLOCK_DIRS = {".git", "__pycache__", "venv", "env"}
 
 app = Flask(__name__, static_folder=None)
-CORS(app)  # Enable CORS for all routes
+
+# Enable CORS only if available
+if CORS_AVAILABLE:
+    CORS(app)
+    print("✅ CORS đã được kích hoạt")
 
 # ===== ROP API FUNCTIONS =====
 def get_rop_model(model_name):
