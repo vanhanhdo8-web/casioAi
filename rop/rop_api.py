@@ -13,14 +13,15 @@ from main import Model, translate_entry, normalize_address_input, decode_packed_
 app = Flask(__name__)
 CORS(app)
 
-# Đường dẫn đến thư mục models - giống với main.py
-MODELS_DIR = Path(__file__).parent / "models"  # /rop/models/
+# Đường dẫn đến thư mục model (không có 's' ở cuối) - giống với index.html
+MODEL_DIR = Path(__file__).parent / "model"  # /rop/model/
 loaded_models = {}
 
 def get_model(model_name):
     """Load model từ file"""
     if model_name not in loaded_models:
-        model_path = MODELS_DIR / model_name
+        # Thêm .txt vào tên file
+        model_path = MODEL_DIR / f"{model_name}.txt"
         if not model_path.exists():
             raise ValueError(f"Model {model_name} không tồn tại")
         loaded_models[model_name] = Model(model_path)
@@ -89,7 +90,7 @@ def translate():
 if __name__ == '__main__':
     print("ROP Translation API Server")
     print("==========================")
-    print("Models directory:", MODELS_DIR)
-    print("Available models:", [f.name for f in MODELS_DIR.glob("*") if f.is_file()])
+    print("Model directory:", MODEL_DIR)
+    print("Available models:", [f.name for f in MODEL_DIR.glob("*.txt") if f.is_file()])
     print("\nStarting server at http://localhost:5000")
     app.run(debug=True, port=5000)
