@@ -2,6 +2,7 @@ import subprocess
 import os
 import mimetypes
 from flask import Flask, request, abort, jsonify, g, send_file, redirect, url_for
+from flask_cors import CORS
 import uuid
 import time
 import json
@@ -10,6 +11,22 @@ import webbrowser
 import tempfile
 import importlib.util
 import sys
+from pathlib import Path
+
+# Import ROP API
+sys.path.append(str(Path(__file__).parent / "rop"))
+try:
+    from main import Model, translate_entry, normalize_address_input, decode_packed_hex_address
+    ROP_AVAILABLE = True
+    print("✅ Đã import ROP translation module")
+except ImportError as e:
+    print(f"⚠️  Không import được ROP translation module: {e}")
+    ROP_AVAILABLE = False
+    # Define dummy functions if import fails
+    def Model(*args, **kwargs): raise NotImplementedError
+    def translate_entry(*args, **kwargs): raise NotImplementedError
+    def normalize_address_input(*args, **kwargs): raise NotImplementedError
+    def decode_packed_hex_address(*args, **kwargs): raise NotImplementedError
 
 # ===== XÁC ĐỊNH CỔNG CHẠY =====
 PORT = int(os.environ.get('PORT', 7860))
@@ -17,6 +34,8 @@ PORT = int(os.environ.get('PORT', 7860))
 # ===== THƯ MỤC GỐC =====
 BASE_DIR = os.getcwd()
 TMP_DIR = tempfile.gettempdir()
+ROP_DIR = os.path.join(BASE_DIR, 'rop')
+MODEL_DIR = os.path.join(ROP_DIR, 'model')
 
 # ===== THƯ MỤC LƯU TRỮ =====
 UPLOAD_FOLDER = os.path.join(TMP_DIR, 'uploads')
@@ -26,7 +45,10 @@ PIXEL_FOLDER = os.path.join(BASE_DIR, 'pixel')
 SPELL_FOLDER = os.path.join(BASE_DIR, 'spell')
 DONATE_FOLDER = os.path.join(BASE_DIR, 'donate')
 LIENHE_FOLDER = os.path.join(BASE_DIR, 'lienhe')
-ROP_FOLDER = os.path.join(BASE_DIR, 'rop')  # Thêm thư mục rop
+ROP_FOLDER = os.path.join(BASE_DIR, 'rop')
+
+# Dictionary để cache models ROP
+rop_loaded_models = {}
 
 ASMAPP_BASE = os.path.join(BASE_DIR, 'asmapp')
 DECOMPILER_MODELS_DIR = os.path.join(ASMAPP_BASE, 'decompiler', 'models')
@@ -35,9 +57,19 @@ MODELS = ['580vnx', '880btg']
 
 # Tạo thư mục
 for folder in [UPLOAD_FOLDER, HEX_FOLDER, ASM_FOLDER, PIXEL_FOLDER,
-               SPELL_FOLDER, DONATE_FOLDER, LIENHE_FOLDER, ROP_FOLDER]:
+               SPELL_FOLDER, DONATE_FOLDER, LIENHE_FOLDER, ROP_FOLDER, MODEL_DIR]:
     if not os.path.exists(folder):
         os.makedirs(folder)
+
+# Kiểm tra ROP models
+if ROP_AVAILABLE:
+    rop_models = list(Path(MODEL_DIR).glob("*.txt"))
+    if rop_models:
+        print(f"✅ Tìm thấy {len(rop_models)} ROP models:")
+        for model in rop_models:
+            print(f"   - {model.name}")
+    else:
+        print(f"⚠️  Không tìm thấy ROP models trong {MODEL_DIR}")
 
 # Kiểm tra compiler
 for model in MODELS:
@@ -84,6 +116,158 @@ BLOCK_FILES = {"run.py", "app.py", "config.py", ".env"}
 BLOCK_DIRS = {".git", "__pycache__", "venv", "env"}
 
 app = Flask(__name__, static_folder=None)
+CORS(app)  # Enable CORS for all routes
+
+# ===== ROP API FUNCTIONS =====
+def get_rop_model(model_name):
+    """Load ROP model từ file"""
+    if not ROP_AVAILABLE:
+        raise ValueError("ROP module không available")
+    
+    if model_name not in rop_loaded_models:
+        # Thêm .txt vào tên file nếu chưa có
+        if not model_name.endswith('.txt'):
+            model_file = f"{model_name}.txt"
+        else:
+            model_file = model_name
+            
+        model_path = os.path.join(MODEL_DIR, model_file)
+        if not os.path.exists(model_path):
+            # Thử tìm file .txt khác
+            txt_files = list(Path(MODEL_DIR).glob(f"{model_name}*.txt"))
+            if txt_files:
+                model_path = str(txt_files[0])
+            else:
+                raise ValueError(f"Model {model_name} không tồn tại trong {MODEL_DIR}")
+        
+        rop_loaded_models[model_name] = Model(model_path)
+        print(f"✅ Loaded ROP model: {model_name}")
+    
+    return rop_loaded_models[model_name]
+
+@app.route("/api/rop/translate", methods=["POST"])
+def rop_translate_api():
+    """API endpoint để dịch địa chỉ ROP"""
+    try:
+        if not ROP_AVAILABLE:
+            return jsonify({"error": "ROP module không khả dụng"}), 500
+            
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"error": "Invalid JSON data"}), 400
+            
+        source_model = data.get('source_model')
+        target_model = data.get('target_model')
+        addresses = data.get('addresses', [])
+        
+        if not source_model or not target_model:
+            return jsonify({'error': 'Thiếu thông tin model'}), 400
+            
+        if not addresses:
+            return jsonify({'error': 'Danh sách địa chỉ trống'}), 400
+            
+        # Load models
+        try:
+            source = get_rop_model(source_model)
+            target = get_rop_model(target_model)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 404
+            
+        results = []
+        for addr in addresses:
+            try:
+                # Chuẩn hóa địa chỉ đầu vào
+                import re
+                if re.match(r'^([0-9A-Fa-f]{2}\s*){4}$', addr) or re.match(r'^[0-9A-Fa-f]{8}$', addr):
+                    formatted_addr = decode_packed_hex_address(addr)
+                else:
+                    formatted_addr = normalize_address_input(addr)
+                
+                # Tìm entry trong model nguồn
+                source_entry = source.get_by_address(formatted_addr)
+                if not source_entry:
+                    results.append({
+                        'source': addr,
+                        'error': f'Không tìm thấy địa chỉ {formatted_addr}'
+                    })
+                    continue
+                
+                # Dịch sang model đích
+                translation = translate_entry(source, target, source_entry)
+                if not translation:
+                    results.append({
+                        'source': addr,
+                        'error': 'Không tìm thấy bản dịch'
+                    })
+                    continue
+                
+                results.append({
+                    'source': addr,
+                    'target': translation.target_entry.address_text,
+                    'confidence': translation.confidence
+                })
+                
+            except Exception as e:
+                results.append({
+                    'source': addr,
+                    'error': str(e)
+                })
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/rop/models", methods=["GET"])
+def rop_models_list():
+    """API endpoint để lấy danh sách models ROP có sẵn"""
+    try:
+        models = []
+        for model_file in Path(MODEL_DIR).glob("*.txt"):
+            models.append({
+                'name': model_file.stem,  # Tên không có .txt
+                'file': model_file.name,
+                'size': model_file.stat().st_size
+            })
+        return jsonify(models)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/api/rop/translate/batch", methods=["POST"])
+def rop_translate_batch():
+    """API endpoint để dịch batch nhiều địa chỉ từ file"""
+    try:
+        if not ROP_AVAILABLE:
+            return jsonify({"error": "ROP module không khả dụng"}), 500
+            
+        if 'file' not in request.files:
+            return jsonify({'error': 'Không tìm thấy file'}), 400
+            
+        file = request.files['file']
+        source_model = request.form.get('source_model')
+        target_model = request.form.get('target_model')
+        
+        if not source_model or not target_model:
+            return jsonify({'error': 'Thiếu thông tin model'}), 400
+            
+        # Đọc địa chỉ từ file
+        content = file.read().decode('utf-8')
+        addresses = [line.strip() for line in content.split('\n') if line.strip()]
+        
+        # Gọi API translate với danh sách địa chỉ
+        data = {
+            'source_model': source_model,
+            'target_model': target_model,
+            'addresses': addresses
+        }
+        
+        # Tạo request context và gọi hàm translate
+        with app.test_request_context('/api/rop/translate', method='POST', json=data):
+            response = rop_translate_api()
+            return response
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ===== LOGGING =====
 @app.before_request
@@ -241,7 +425,7 @@ def decompile_api():
         if os.path.exists(input_path): os.unlink(input_path)
         if os.path.exists(output_path): os.unlink(output_path)
 
-# ===== ROP ROUTES =====
+# ===== ROP ROUTES (Static files) =====
 @app.route("/rop")
 @app.route("/rop/")
 @app.route("/rop/<path:subpath>")
@@ -397,8 +581,17 @@ if __name__ == "__main__":
     print(f"\n🚀 Casio Tool Server đang chạy tại http://0.0.0.0:{PORT}")
     print(f"📁 Upload tạm: {UPLOAD_FOLDER}")
     print(f"📁 ROP Directory: {ROP_FOLDER}")
+    print(f"📁 ROP Models: {MODEL_DIR}")
+    
+    # Hiển thị ROP API endpoints
+    if ROP_AVAILABLE:
+        print("\n📡 ROP API Endpoints:")
+        print("   POST /api/rop/translate - Dịch địa chỉ ROP")
+        print("   GET  /api/rop/models   - Danh sách models")
+        print("   POST /api/rop/translate/batch - Dịch batch từ file")
     
     if not os.environ.get('SPACE_ID'):
         threading.Thread(target=open_browser, daemon=True).start()
-        print("⏳ Đang mở trình duyệt...")
+        print("\n⏳ Đang mở trình duyệt...")
+    
     app.run("0.0.0.0", PORT, debug=True)
