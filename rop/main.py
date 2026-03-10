@@ -176,7 +176,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def resolve_model_path(models_dir: Path, model_name: str) -> Path:
-    path = models_dir / model_name
+    # Thêm .txt vào tên file
+    model_file = model_name + '.txt'
+    path = models_dir / model_file
     if not path.is_file():
         available = ", ".join(sorted(item.name for item in models_dir.iterdir() if item.is_file()))
         raise FileNotFoundError(f"Unknown model '{model_name}'. Available models: {available}")
@@ -207,17 +209,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # Sửa đường dẫn đến thư mục models
-    # Nếu file main.py nằm trong /rop/, thì:
-    # repo_root = Path(__file__).resolve().parent  # sẽ là /rop/
-    # models_dir = repo_root / "models"  # sẽ là /rop/models/
-    
+    # Đường dẫn đến thư mục model (không có 's' ở cuối)
     repo_root = Path(__file__).resolve().parent
-    models_dir = repo_root / "models"  # Đường dẫn chính xác đến /rop/models/
+    model_dir = repo_root / "model"  # /rop/model/ (không phải models)
 
     try:
-        source_path = resolve_model_path(models_dir, args.source_model)
-        target_path = resolve_model_path(models_dir, args.target_model)
+        source_path = resolve_model_path(model_dir, args.source_model)
+        target_path = resolve_model_path(model_dir, args.target_model)
         source_model = Model(source_path)
         target_model = Model(target_path)
     except (FileNotFoundError, ValueError) as error:
