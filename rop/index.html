@@ -904,6 +904,8 @@
             
             fromSelect.value = toSelect.value;
             toSelect.value = tempValue;
+            
+            console.log('Swapped:', fromSelect.value, '↔', toSelect.value);
         }
 
         // ==================== TRA GADGET ====================
@@ -959,7 +961,6 @@
             return null;
         }
 
-        // Tìm các dòng liên tiếp chứa patterns
         function findAdjacentLines(lines, patterns) {
             if (!patterns || patterns.length === 0) return [];
             
@@ -1364,7 +1365,6 @@
 
         // ===== API CALL CHO TRANSLATOR 2.0 =====
         async function translateWithPythonAPI(sourceModel, targetModel, addresses) {
-            // Gọi đến một endpoint API đơn giản
             const response = await fetch('/api/rop/translate', {
                 method: 'POST',
                 headers: {
@@ -1378,8 +1378,15 @@
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Lỗi kết nối đến server');
+                const errorText = await response.text();
+                let errorMsg = `Lỗi HTTP ${response.status}`;
+                try {
+                    const error = JSON.parse(errorText);
+                    errorMsg = error.error || errorMsg;
+                } catch {
+                    errorMsg = errorText || errorMsg;
+                }
+                throw new Error(errorMsg);
             }
 
             return await response.json();
@@ -1434,10 +1441,28 @@
             try {
                 if (selectedMode === 'v2') {
                     // Sử dụng Python backend
+                    console.log('Gọi API Python với:', { srcModel, dstModel, lines });
+                    
                     const results = await translateWithPythonAPI(srcModel, dstModel, lines);
                     displayPythonResults(results);
+                    
                 } else {
                     // Sử dụng JavaScript (v1)
+                    console.log('Dùng JavaScript translator với:', { srcModel, dstModel });
+                    
+                    // Kiểm tra model tồn tại
+                    const [srcExists, dstExists] = await Promise.all([
+                        fetch(`/rop/model/${srcModel}.txt`).then(r => r.ok),
+                        fetch(`/rop/model/${dstModel}.txt`).then(r => r.ok)
+                    ]);
+                    
+                    if (!srcExists || !dstExists) {
+                        const missing = [];
+                        if (!srcExists) missing.push(srcModel);
+                        if (!dstExists) missing.push(dstModel);
+                        throw new Error(`Không tìm thấy model: ${missing.join(', ')}`);
+                    }
+                    
                     const [srcLines, dstLines] = await Promise.all([
                         loadModelFile(srcModel),
                         loadModelFile(dstModel)
@@ -1451,7 +1476,9 @@
                     displayRopResults(allResults);
                 }
             } catch (error) {
-                document.getElementById('ropOutput').innerHTML = `<div class="error-message">❌ ${error.message}</div>`;
+                console.error('Translation error:', error);
+                document.getElementById('ropOutput').innerHTML = 
+                    `<div class="error-message">❌ ${error.message}</div>`;
             }
         });
     </script>
