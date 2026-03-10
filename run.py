@@ -70,6 +70,7 @@ if ROP_AVAILABLE:
             print(f"   - {model.name}")
     else:
         print(f"⚠️  Không tìm thấy ROP models trong {MODEL_DIR}")
+        print(f"   Tạo file model mẫu: echo '0:04B2H  F7C4 MUL' > {MODEL_DIR}/580vnx.txt")
 
 # Kiểm tra compiler
 for model in MODELS:
@@ -140,7 +141,7 @@ def get_rop_model(model_name):
             else:
                 raise ValueError(f"Model {model_name} không tồn tại trong {MODEL_DIR}")
         
-        rop_loaded_models[model_name] = Model(model_path)
+        rop_loaded_models[model_name] = Model(Path(model_path))
         print(f"✅ Loaded ROP model: {model_name}")
     
     return rop_loaded_models[model_name]
