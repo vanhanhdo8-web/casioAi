@@ -2,16 +2,23 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pathlib import Path
-from main import Model, translate_entry, normalize_address_input, decode_packed_hex_address
+import sys
 import re
+
+# Thêm thư mục hiện tại vào path để import main.py
+sys.path.append(str(Path(__file__).parent))
+
+from main import Model, translate_entry, normalize_address_input, decode_packed_hex_address
 
 app = Flask(__name__)
 CORS(app)
 
-MODELS_DIR = Path(__file__).parent / "models"
+# Đường dẫn đến thư mục models - giống với main.py
+MODELS_DIR = Path(__file__).parent / "models"  # /rop/models/
 loaded_models = {}
 
 def get_model(model_name):
+    """Load model từ file"""
     if model_name not in loaded_models:
         model_path = MODELS_DIR / model_name
         if not model_path.exists():
@@ -19,8 +26,9 @@ def get_model(model_name):
         loaded_models[model_name] = Model(model_path)
     return loaded_models[model_name]
 
-@app.route('/rop/translate', methods=['POST'])
+@app.route('/api/rop/translate', methods=['POST'])
 def translate():
+    """API endpoint để dịch địa chỉ ROP"""
     try:
         data = request.json
         source_model = data.get('source_model')
@@ -30,6 +38,7 @@ def translate():
         if not source_model or not target_model:
             return jsonify({'error': 'Thiếu thông tin model'}), 400
 
+        # Load models
         source = get_model(source_model)
         target = get_model(target_model)
         
@@ -60,17 +69,10 @@ def translate():
                     })
                     continue
                 
-                # Lấy dòng chi tiết từ model đích
-                target_line = None
-                if translation.target_entry.index < len(target.entries):
-                    entry = target.entries[translation.target_entry.index]
-                    target_line = f"{entry.address_text} {entry.opcode} ..."
-                
                 results.append({
                     'source': addr,
                     'target': translation.target_entry.address_text,
-                    'confidence': translation.confidence,
-                    'details': target_line
+                    'confidence': translation.confidence
                 })
                 
             except Exception as e:
@@ -85,4 +87,9 @@ def translate():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
+    print("ROP Translation API Server")
+    print("==========================")
+    print("Models directory:", MODELS_DIR)
+    print("Available models:", [f.name for f in MODELS_DIR.glob("*") if f.is_file()])
+    print("\nStarting server at http://localhost:5000")
     app.run(debug=True, port=5000)
